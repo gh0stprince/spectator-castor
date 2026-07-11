@@ -94,6 +94,10 @@ export class HermesDesktopManager {
 
   async restoreNormal() {
     await this.stop();
+    // Electron can outlive its visible process briefly while releasing the
+    // single-instance lock. An immediate relaunch may hand off to that dying
+    // instance and exit without ever creating a window.
+    await wait(1500);
     this.launch(false);
   }
 }

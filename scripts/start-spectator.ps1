@@ -34,7 +34,7 @@ if (-not $env:HERMES_DASHBOARD_SESSION_TOKEN) {
   }
 }
 
-Write-Host "Starting Spectator. Keep this window open; press Ctrl+C for a clean shutdown." -ForegroundColor Yellow
+Write-Host "Starting Spectator. Keep this window open; run stop-spectator.cmd for a clean shutdown." -ForegroundColor Yellow
 $cliArgs = @(
   "src/cli.js",
   "--hermes-url", "http://127.0.0.1:$HermesPort",

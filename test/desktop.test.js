@@ -22,6 +22,7 @@ test("managed teardown closes Hermes gracefully before any forced fallback", () 
   const manager = fs.readFileSync(new URL("../src/desktop.js", import.meta.url), "utf8");
   const stopScript = fs.readFileSync(new URL("../scripts/stop-spectator.ps1", import.meta.url), "utf8");
   assert.ok(manager.indexOf("CloseMainWindow") < manager.indexOf("Stop-Process -Id $_.ProcessId -Force"));
+  assert.ok(manager.includes("await wait(1500)"));
   assert.ok(stopScript.indexOf("--close-desktop") < stopScript.indexOf("Stop-Process -Id $process.ProcessId -Force"));
 });
 

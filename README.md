@@ -49,9 +49,9 @@ hermes dashboard --no-open
 .\start-spectator.cmd -ViewKey <your-view-key>
 ```
 
-Keep the PowerShell window opened by the start script running. Normal shutdown is `Ctrl+C` in that window; Hermes closes first, then Spectator exits, with no batch-job prompt.
+Keep the PowerShell window opened by the start script running. For deterministic shutdown, double-click `stop-spectator.cmd` or run it from another terminal. It closes Hermes first, waits for its own cleanup, and only then stops Spectator. Do not close the start window or use Task Manager as the normal shutdown path.
 
-If the window was closed or force-stopped, use the recovery path:
+The same stop script is also the recovery path if the start window became stuck:
 
 ```powershell
 .\stop-spectator.cmd
