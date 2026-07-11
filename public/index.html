@@ -53,6 +53,7 @@
   }
 
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; }
   body {
     background: var(--canvas); color: var(--text);
@@ -76,17 +77,30 @@
   .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
   .wordmark { font: 700 13px/1 var(--sans); letter-spacing: .13em; color: var(--strong); }
   .pill {
-    display: inline-flex; align-items: center; gap: 6px;
-    font: 500 11px/1 var(--mono); letter-spacing: .12em;
-    color: var(--muted);
+    min-height: 30px; padding: 0 10px;
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid var(--border); border-radius: 999px;
+    background: var(--surface); color: var(--muted);
+    font: 700 10px/1 var(--mono); letter-spacing: .11em;
   }
-  .pill.live { color: var(--strong); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .pill.live {
+    color: var(--live);
+    border-color: color-mix(in srgb, var(--live) 55%, var(--border));
+    background: color-mix(in srgb, var(--live) 10%, var(--surface));
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
   .pill.live .dot { background: var(--live); animation: pulse 1.6s ease-in-out infinite; }
   .title { font: 600 14px var(--sans); color: var(--strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .meta { display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-width: 0; }
-  .chip, .viewers { font: 500 11px var(--mono); color: var(--muted); white-space: nowrap; }
-  .viewers { color: var(--accent); }
+  .chip { font: 500 11px var(--mono); color: var(--muted); white-space: nowrap; }
+  .viewers {
+    min-height: 30px; padding: 0 10px;
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border)); border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface)); color: var(--accent);
+    font: 700 11px var(--mono); white-space: nowrap;
+  }
+  .viewers::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
   .theme-toggle {
     min-width: 50px; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px;
     display: grid; place-items: center; color: var(--strong); background: var(--surface);
