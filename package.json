@@ -1,0 +1,21 @@
+{
+  "name": "hermes-live",
+  "version": "0.1.0",
+  "description": "Twitch for your agent — a shareable live spectate link for any running Hermes Agent session",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test test/",
+    "demo": "node src/cli.js --demo",
+    "start": "node src/cli.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "hermes-live": "./src/cli.js"
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
+  }
+}

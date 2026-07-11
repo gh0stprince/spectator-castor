@@ -1,0 +1,29 @@
+{"id":"mrgfggkq-0","ts":1783778154218,"sessionId":"live","seq":1,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Hermes session","model":"","startedAt":1783778154218}}
+{"id":"mrgfggkr-1","ts":1783778154219,"sessionId":"live","seq":2,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"idle"}}
+{"id":"mrgfgjjh-2","ts":1783778158061,"sessionId":"dcad1a80","seq":3,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Greeting and offer to help","model":"openai-codex / gpt-5.4","startedAt":1783778158061}}
+{"id":"mrgfgkk6-4","ts":1783778159382,"sessionId":"live","seq":4,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":1}}
+{"id":"mrgfj726-0","ts":1783778281854,"sessionId":"live","seq":5,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":1}}
+{"id":"mrgfj7zi-1","ts":1783778283054,"sessionId":"live","seq":6,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Hermes session","model":"","startedAt":1783778283054}}
+{"id":"mrgfj7zj-2","ts":1783778283055,"sessionId":"live","seq":7,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"idle"}}
+{"id":"mrgfjafu-3","ts":1783778286234,"sessionId":"81305e73","seq":8,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Greeting and offer to help","model":"openai-codex / gpt-5.4","startedAt":1783778286234}}
+{"id":"mrgflap7-0","ts":1783778379883,"sessionId":"live","seq":9,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"connecting"}}
+{"id":"mrgflape-1","ts":1783778379890,"sessionId":"live","seq":10,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"live"}}
+{"id":"mrgflapg-2","ts":1783778379892,"sessionId":"live","seq":11,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Hermes session","model":"","startedAt":1783778379892}}
+{"id":"mrgflapg-3","ts":1783778379892,"sessionId":"live","seq":12,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"idle"}}
+{"id":"mrgflddp-4","ts":1783778383357,"sessionId":"live","seq":13,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":1}}
+{"id":"mrgfltjh-9","ts":1783778404301,"sessionId":"81305e73","seq":14,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"reconnecting","detail":"Hermes socket closed (1012)"}}
+{"id":"mrgfmroc-j","ts":1783778448540,"sessionId":"81305e73","seq":15,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"connecting"}}
+{"id":"mrgfmrqw-k","ts":1783778448632,"sessionId":"81305e73","seq":16,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"live"}}
+{"id":"mrgfmrr3-l","ts":1783778448639,"sessionId":"81305e73","seq":17,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Hermes session","model":"","startedAt":1783778448639}}
+{"id":"mrgfmrr3-m","ts":1783778448639,"sessionId":"81305e73","seq":18,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"idle"}}
+{"id":"mrgfmy1f-p","ts":1783778456787,"sessionId":"97b3c456","seq":19,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Greeting and offer to help","model":"openai-codex / gpt-5.4","startedAt":1783778456787}}
+{"id":"mrgfrhez-1x","ts":1783778668523,"sessionId":"live","seq":20,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":2}}
+{"id":"mrgfrhh7-1y","ts":1783778668603,"sessionId":"live","seq":21,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":1}}
+{"id":"mrgft6gn-0","ts":1783778747639,"sessionId":"live","seq":22,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":1}}
+{"id":"mrgft7av-1","ts":1783778748727,"sessionId":"live","seq":23,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"connecting"}}
+{"id":"mrgft7b3-2","ts":1783778748735,"sessionId":"live","seq":24,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"live"}}
+{"id":"mrgft7b6-3","ts":1783778748738,"sessionId":"live","seq":25,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Hermes session","model":"","startedAt":1783778748738}}
+{"id":"mrgft7b7-4","ts":1783778748739,"sessionId":"live","seq":26,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"status","payload":{"state":"idle"}}
+{"id":"mrgfta9i-6","ts":1783778752566,"sessionId":"7a226718","seq":27,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Greeting and offer to help","model":"openai-codex / gpt-5.4","startedAt":1783778752566}}
+{"id":"mrgftkdj-a","ts":1783778765671,"sessionId":"live","seq":28,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":2}}
+{"id":"mrgftkfo-b","ts":1783778765748,"sessionId":"live","seq":29,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":1}}

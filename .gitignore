@@ -1,0 +1,5 @@
+node_modules/
+*.log
+
+# Raw recordings can contain private Hermes payloads. Review explicitly before adding.
+fixtures/raw-frames.jsonl
