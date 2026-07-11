@@ -39,8 +39,9 @@ test("scrubs provider key shapes", () => {
 });
 
 test("provider-key replacement contains no match-offset artifact", () => {
+  const fakeKey = joined("sk-", "unit1234567890abcdefghij");
   assert.equal(
-    scrubString(joined("Here's my API key ", joined("sk-", "unit1234567890abcdefghij"), "; check it.")),
+    scrubString(joined("Here's my API key ", fakeKey, "; check it.")),
     "Here's my API key [redacted]; check it.",
   );
 });
