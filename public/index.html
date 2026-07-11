@@ -203,6 +203,8 @@
     return rec;
   }
 
+  const entityKey = (ev, id) => `${ev.sessionId || "live"}:${id}`;
+
   function toolCard(p) {
     const card = document.createElement("div");
     card.className = "card running";
@@ -232,30 +234,31 @@
       add(t);
     },
     "message.delta": (ev) => {
-      const rec = agentTurn(ev.payload.messageId);
+      const rec = agentTurn(entityKey(ev, ev.payload.messageId));
       rec.text += ev.payload.text || "";
       rec.el.innerHTML = fmt(rec.text) + '<span class="caret"></span>';
       stick();
     },
     "message.complete": (ev) => {
-      const rec = agentTurn(ev.payload.messageId);
+      const rec = agentTurn(entityKey(ev, ev.payload.messageId));
       rec.text = ev.payload.text ?? rec.text;
       rec.el.innerHTML = fmt(rec.text);
       stick();
     },
     "tool.start": (ev) => {
-      tools.set(ev.payload.toolId, toolCard(ev.payload));
-      if (ev.payload.argsHidden) tools.get(ev.payload.toolId).pre.innerHTML = '<span class="hint">tool arguments hidden by the host</span>';
+      const key = entityKey(ev, ev.payload.toolId);
+      tools.set(key, toolCard(ev.payload));
+      if (ev.payload.argsHidden) tools.get(key).pre.innerHTML = '<span class="hint">tool arguments hidden by the host</span>';
       setTicker("ON AIR", "running " + (ev.payload.name || "tool"));
     },
     "tool.progress": (ev) => {
-      const t = tools.get(ev.payload.toolId); if (!t) return;
+      const t = tools.get(entityKey(ev, ev.payload.toolId)); if (!t) return;
       t.pre.textContent = ((t.pre.textContent || "") + "\n" + (ev.payload.chunk || "")).trim();
       t.card.classList.add("open");
       stick();
     },
     "tool.complete": (ev) => {
-      const t = tools.get(ev.payload.toolId); if (!t) return;
+      const t = tools.get(entityKey(ev, ev.payload.toolId)); if (!t) return;
       const ok = ev.payload.status !== "error";
       t.card.classList.remove("running");
       t.card.classList.add(ok ? "ok" : "error");
@@ -276,11 +279,11 @@
         </div>
         <div class="card-body"><pre><span class="hint">waiting for the operator…</span></pre></div>`;
       add(card);
-      approvals.set(ev.payload.approvalId, card);
+      approvals.set(entityKey(ev, ev.payload.approvalId), card);
       setTicker("ON AIR", "waiting for approval", ev.payload.name || "");
     },
     "approval.decision": (ev) => {
-      const card = approvals.get(ev.payload.approvalId); if (!card) return;
+      const card = approvals.get(entityKey(ev, ev.payload.approvalId)); if (!card) return;
       const ok = ev.payload.decision === "approve";
       const b = card.querySelector(".badge");
       b.className = "badge " + (ok ? "ok" : "err");

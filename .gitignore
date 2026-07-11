@@ -3,3 +3,4 @@ node_modules/
 
 # Raw recordings can contain private Hermes payloads. Review explicitly before adding.
 fixtures/raw-frames.jsonl
+.spectator/

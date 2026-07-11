@@ -53,6 +53,7 @@ export class HermesAdapter extends EventEmitter {
     this.closed = false;
     this.rpcId = 0;
     this.messageSeq = 0;
+    this.runId = crypto.randomBytes(6).toString("hex");
     this.currentMessageId = null;
   }
 
@@ -69,6 +70,10 @@ export class HermesAdapter extends EventEmitter {
 
   _emit(kind, payload, actor = this.agent) {
     this.emit("event", mkEvent(this.sessionId, actor, kind, payload));
+  }
+
+  _nextMessageId() {
+    return `m-${this.runId}-${++this.messageSeq}`;
   }
 
   _connect() {
@@ -159,14 +164,21 @@ export class HermesAdapter extends EventEmitter {
         this._emit("status", { state: "idle" });
         break;
 
+      case "message.start":
+        // Hermes deltas often omit an id. Allocate at the real turn boundary;
+        // include a per-adapter nonce so reconnect/restart history cannot merge.
+        this.currentMessageId = this._nextMessageId();
+        this._emit("status", { state: "thinking" });
+        break;
+
       case "message.delta":
-        this.currentMessageId ??= `m${++this.messageSeq}`;
+        this.currentMessageId ??= this._nextMessageId();
         this._emit("message.delta", { messageId: pickId(p, this.currentMessageId), text: pickText(p) });
         this._emit("status", { state: "thinking" });
         break;
 
       case "message.complete":
-        this.currentMessageId ??= `m${++this.messageSeq}`;
+        this.currentMessageId ??= this._nextMessageId();
         this._emit("message.complete", { messageId: pickId(p, this.currentMessageId), text: pickText(p) });
         this.currentMessageId = null;
         this._emit("status", { state: "idle" });
@@ -190,6 +202,9 @@ export class HermesAdapter extends EventEmitter {
       case "tool.start":
         this._emit("tool.start", { toolId: pickId(p, "t0"), name: pickName(p), summary: pickSummary(p), args: p.args ?? p.arguments });
         this._emit("status", { state: "tooling", detail: pickName(p) });
+        // Text streamed after a tool belongs below its card in the timeline.
+        // A later delta will allocate a fresh display segment.
+        this.currentMessageId = null;
         break;
 
       case "tool.progress":

@@ -183,3 +183,5 @@
 {"id":"mrgg3u02-i","ts":1783779244706,"sessionId":"5ae857bf","seq":183,"actor":{"type":"agent","id":"agent","name":"hermes"},"kind":"session.meta","payload":{"title":"Greeting and offer to help","model":"openai-codex / gpt-5.4","startedAt":1783779244706}}
 {"id":"mrgg464v-n","ts":1783779260431,"sessionId":"live","seq":184,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":3}}
 {"id":"mrgg47fq-p","ts":1783779262118,"sessionId":"live","seq":185,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":2}}
+{"id":"mrgg6vws-1f","ts":1783779387148,"sessionId":"live","seq":186,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":1}}
+{"id":"mrgg6wwi-1g","ts":1783779388434,"sessionId":"live","seq":187,"actor":{"type":"agent","id":"system","name":"hermes-live"},"kind":"presence.state","payload":{"viewers":2}}

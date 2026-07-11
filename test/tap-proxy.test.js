@@ -123,3 +123,25 @@ test("adapter derives safe tool status from real Hermes result shape", () => {
   assert.equal(events[0].payload.summary, "terminal failed (exit 2) in 1.3s");
   assert.equal(events[0].payload.output.output, "private output");
 });
+
+test("adapter keeps streamed turns unique and splits text around tools", () => {
+  const adapter = new HermesAdapter({ url: "http://127.0.0.1:1", token: "unused" });
+  const events = [];
+  adapter.on("event", (event) => events.push(event));
+  const frame = (type, session_id, payload = {}) => adapter.ingestRaw(JSON.stringify({
+    method: "event", params: { type, session_id, payload },
+  }));
+
+  frame("message.start", "s1");
+  frame("message.delta", "s1", { text: "before" });
+  frame("tool.start", "s1", { tool_id: "t1", name: "terminal" });
+  frame("message.delta", "s1", { text: "after" });
+  frame("message.complete", "s1", { text: "after" });
+  frame("message.start", "s2");
+  frame("message.delta", "s2", { text: "next turn" });
+
+  const messages = events.filter((event) => event.kind === "message.delta" || event.kind === "message.complete");
+  assert.notEqual(messages[0].payload.messageId, messages[1].payload.messageId);
+  assert.equal(messages[1].payload.messageId, messages[2].payload.messageId);
+  assert.notEqual(messages[2].payload.messageId, messages[3].payload.messageId);
+});
