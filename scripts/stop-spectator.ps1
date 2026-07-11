@@ -2,8 +2,11 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-# Normal shutdown is Ctrl+C in the Start window. This is the recovery path when
-# that window was closed or the process became stuck.
+# Close Hermes through Electron first so its before-quit handler can flush state
+# and stop the backend child. Only then terminate a stuck Spectator process.
+$cleanup = Start-Process node.exe -ArgumentList @("src/cli.js", "--close-desktop") -NoNewWindow -PassThru -Wait
+if ($cleanup.ExitCode -ne 0) { throw "Hermes Desktop did not close cleanly. See the error above." }
+
 $managed = Get-CimInstance Win32_Process | Where-Object {
   $_.Name -ieq "node.exe" -and
   $_.CommandLine -match 'src[\\/]cli\.js' -and
@@ -14,6 +17,4 @@ foreach ($process in $managed) {
   Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
 }
 
-& node.exe src/cli.js --restore-desktop
-if ($LASTEXITCODE -ne 0) { throw "Hermes restore failed. See the error above." }
-Write-Host "Spectator is stopped and Hermes has been reopened normally." -ForegroundColor Green
+Write-Host "Spectator and Hermes Desktop are closed. The next Hermes launch will be standalone." -ForegroundColor Green

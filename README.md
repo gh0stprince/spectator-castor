@@ -36,7 +36,7 @@ Desktop still talks to Hermes normally. The tap forwards both directions unchang
 
 ## Windows operator runbook
 
-Pin a stable `HERMES_DASHBOARD_SESSION_TOKEN` in either `~/.hermes/.env` or `%LOCALAPPDATA%\hermes\.env`. Do not expose the Hermes backend itself.
+Do **not** pin `HERMES_DASHBOARD_SESSION_TOKEN` in `~/.hermes/.env` or `%LOCALAPPDATA%\hermes\.env`. Hermes loads that file with override semantics; a pinned value replaces the fresh token Desktop passes to its own local backend and makes the next normal Desktop launch fail at WebSocket authentication. The operator script discovers the running dashboard's injected token over loopback for each run and never writes it to disk.
 
 ```powershell
 # Terminal 1 — loopback-only Hermes backend
@@ -49,7 +49,7 @@ hermes dashboard --no-open
 .\start-spectator.cmd -ViewKey <your-view-key>
 ```
 
-Keep the Spectator window open. Normal shutdown is `Ctrl+C` in that window.
+Keep the PowerShell window opened by the start script running. Normal shutdown is `Ctrl+C` in that window; Hermes closes first, then Spectator exits, with no batch-job prompt.
 
 If the window was closed or force-stopped, use the recovery path:
 
@@ -57,9 +57,9 @@ If the window was closed or force-stopped, use the recovery path:
 .\stop-spectator.cmd
 ```
 
-Both paths close the temporary managed Desktop process tree, remove its remote-mode environment, leave `hermes dashboard` alone, and reopen Hermes Desktop in normal standalone mode. This lifecycle was tested against the real Windows installation; reopening Hermes does not require a reboot.
+Both paths ask the temporary Hermes window to close normally first, allowing Electron's `before-quit` handler to flush state and stop its backend child. Spectator then shuts down and leaves Hermes closed. The temporary remote-mode environment existed only in that managed process, so the next launch from the normal Hermes shortcut is a clean standalone launch. A forced process-tree stop is reserved for an unresponsive emergency fallback. The separate `hermes dashboard` process is never targeted.
 
-The scripts read the token without printing it. Live history is stored as normalized, redacted events in the git-ignored `.spectator/` directory.
+The scripts discover the dashboard token without printing or persisting it. Live history is stored as normalized, redacted events in the git-ignored `.spectator/` directory.
 
 ## Publish the viewer
 
@@ -141,7 +141,7 @@ The Day 1 path was exercised end to end with real Hermes:
 - Public WebSocket frames contained no planted key, privileged prompt events, raw tool fields, or reasoning.
 - The persisted redacted stream contained no planted key; raw recording was disabled and removed.
 - A wrong viewer key received HTTP 401.
-- Managed start, clean stop, recovery stop, and normal Hermes reopen all passed on Windows.
+- Managed start and shutdown are tested on Windows; teardown closes Hermes before Spectator and leaves the next launch standalone.
 - Dark and light viewer states were rendered and visually checked against a real session.
 
 Run the current suite with:
@@ -157,8 +157,9 @@ npm test
 --hermes-url <url>         loopback Hermes backend
 --token <value>            Hermes dashboard token
 --tap-port <n>             authenticated Desktop tap
---manage-desktop           launch/restore Hermes Desktop on Windows
+--manage-desktop           launch a temporary Hermes Desktop on Windows
 --desktop-path <path>      override Desktop executable discovery
+--close-desktop            close managed Desktop without relaunching
 --restore-desktop          emergency standalone-Hermes recovery
 --persist <path>           redacted event history
 --view-key <key>           stable viewer key
@@ -171,7 +172,7 @@ npm test
 
 ```text
 src/cli.js          startup, lifecycle, and operator output
-src/desktop.js      managed Windows Desktop start/restore
+src/desktop.js      managed Windows Desktop start/clean teardown
 src/adapter.js      Hermes protocol client, normalizer, and tap proxy
 src/redact.js       mandatory browser-facing safety layer
 src/relay.js        viewer server, key auth, redacted history, fan-out

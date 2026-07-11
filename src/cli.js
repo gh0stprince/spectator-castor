@@ -38,6 +38,13 @@ if (flag("restore-desktop")) {
   process.exit(0);
 }
 
+if (flag("close-desktop")) {
+  const desktop = new HermesDesktopManager({ executable: desktopPath });
+  await desktop.stop();
+  console.log("Hermes Desktop closed cleanly. Its next launch will be standalone.");
+  process.exit(0);
+}
+
 const relay = new Relay({ port, viewKey, fullToolOutput: flag("full-tool-output"), persistPath });
 await relay.start();
 let adapter = null;
@@ -52,13 +59,10 @@ async function shutdown(signal) {
     if (desktop) await desktop.stop();
     adapter?.stop();
     relay.stop();
-    if (desktop) {
-      desktop.launch(false);
-      console.log("Hermes Desktop restored to normal standalone mode.");
-    }
+    if (desktop) console.log("Hermes Desktop closed cleanly. Its next launch will be standalone.");
   } catch (err) {
-    console.error(`Hermes restore failed: ${err.message}`);
-    console.error(`Run: node src/cli.js --restore-desktop${desktopPath ? ` --desktop-path "${desktopPath}"` : ""}`);
+    console.error(`Hermes teardown failed: ${err.message}`);
+    console.error(`Run: node src/cli.js --close-desktop${desktopPath ? ` --desktop-path "${desktopPath}"` : ""}`);
     process.exitCode = 1;
   }
   setTimeout(() => process.exit(process.exitCode ?? 0), 150).unref();
@@ -84,7 +88,8 @@ if (flag("demo")) {
   }
   if (!token) {
     console.error(`\nConnected to Hermes at ${hermesUrl} but no token provided.`);
-    console.error(`Set ${amber("HERMES_DASHBOARD_SESSION_TOKEN")} (pin one in ~/.hermes/.env so it survives restarts) or pass ${amber("--token")}.\n`);
+    console.error(`Set ${amber("HERMES_DASHBOARD_SESSION_TOKEN")} for this process or pass ${amber("--token")}.`);
+    console.error(`Do not pin it in Hermes's .env; that can override Desktop's local token on its next launch.\n`);
     process.exit(1);
   }
   adapter = tapPort
@@ -111,4 +116,4 @@ console.log(amber(`    cloudflared tunnel --url http://localhost:${port}`));
 console.log(dim(`    then share:  <tunnel-url>/watch#k=${relay.viewKey}\n`));
 console.log(dim(`  Redaction is ON: secrets scrubbed, tool args/output hidden (names + summaries shown).`));
 console.log(dim(`  Hermes itself is never exposed — only this relay.\n`));
-if (desktop) console.log(dim(`  Hermes Desktop is managed: stopping Spectator restores normal standalone mode.\n`));
+if (desktop) console.log(dim(`  Hermes Desktop is managed: stopping Spectator closes it cleanly; the next launch is standalone.\n`));

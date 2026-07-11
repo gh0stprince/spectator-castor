@@ -11,27 +11,6 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-if (-not $env:HERMES_DASHBOARD_SESSION_TOKEN) {
-  $envFiles = @(
-    (Join-Path $HOME ".hermes\.env"),
-    (Join-Path $env:USERPROFILE ".hermes\.env"),
-    (Join-Path $env:LOCALAPPDATA "hermes\.env")
-  ) | Select-Object -Unique
-
-  foreach ($envFile in $envFiles) {
-    if (-not (Test-Path $envFile)) { continue }
-    $line = Get-Content $envFile | Where-Object { $_ -match '^\s*HERMES_DASHBOARD_SESSION_TOKEN\s*=' } | Select-Object -Last 1
-    if ($line) {
-      $env:HERMES_DASHBOARD_SESSION_TOKEN = (($line -split '=', 2)[1]).Trim().Trim('"').Trim("'")
-      break
-    }
-  }
-}
-
-if (-not $env:HERMES_DASHBOARD_SESSION_TOKEN) {
-  throw "No HERMES_DASHBOARD_SESSION_TOKEN found. Pin it in ~/.hermes/.env or %LOCALAPPDATA%\hermes\.env."
-}
-
 try {
   $status = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 "http://127.0.0.1:$HermesPort/api/status"
   if ($status.StatusCode -ne 200) { throw "status $($status.StatusCode)" }
@@ -39,7 +18,23 @@ try {
   throw "Hermes is not ready on 127.0.0.1:$HermesPort. First run: hermes dashboard --no-open"
 }
 
-Write-Host "Starting Spectator. Keep this window open; press Ctrl+C to stop and restore Hermes." -ForegroundColor Yellow
+# A global token in Hermes's .env overrides the fresh token Desktop passes to
+# its own local backend and breaks the next ordinary Desktop launch. Never read
+# or write that file here. A dashboard safely injects its current token into its
+# loopback-only HTML, so discover it per run unless the operator scoped one to
+# this shell explicitly.
+if (-not $env:HERMES_DASHBOARD_SESSION_TOKEN) {
+  try {
+    $dashboard = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 "http://127.0.0.1:$HermesPort/"
+    $match = [regex]::Match($dashboard.Content, 'window\.__HERMES_SESSION_TOKEN__\s*=\s*("(?:\\.|[^"\\])*")')
+    if (-not $match.Success) { throw "dashboard token was not present in the served page" }
+    $env:HERMES_DASHBOARD_SESSION_TOKEN = $match.Groups[1].Value | ConvertFrom-Json
+  } catch {
+    throw "Could not discover the dashboard session token. Run 'hermes dashboard --no-open' (not 'hermes serve') and try again. Do not pin HERMES_DASHBOARD_SESSION_TOKEN in Hermes's .env."
+  }
+}
+
+Write-Host "Starting Spectator. Keep this window open; press Ctrl+C for a clean shutdown." -ForegroundColor Yellow
 $cliArgs = @(
   "src/cli.js",
   "--hermes-url", "http://127.0.0.1:$HermesPort",
@@ -50,10 +45,10 @@ $cliArgs = @(
 )
 if ($ViewKey) { $cliArgs += @("--view-key", $ViewKey) }
 if ($ExtraArgs) { $cliArgs += $ExtraArgs }
-& node.exe @cliArgs
+$spectator = Start-Process node.exe -ArgumentList $cliArgs -NoNewWindow -PassThru -Wait
 
-if ($LASTEXITCODE -ne 0) {
-  Write-Warning "Spectator exited unexpectedly. Running the Hermes restore safety net."
-  & node.exe src/cli.js --restore-desktop
-  exit $LASTEXITCODE
+if ($spectator.ExitCode -ne 0) {
+  Write-Warning "Spectator exited unexpectedly. Closing its managed Hermes Desktop safely."
+  $cleanup = Start-Process node.exe -ArgumentList @("src/cli.js", "--close-desktop") -NoNewWindow -PassThru -Wait
+  exit $spectator.ExitCode
 }

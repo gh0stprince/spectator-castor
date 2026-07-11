@@ -42,20 +42,35 @@ export class HermesDesktopManager {
   }
 
   async stop() {
-    // Match the exact executable path so the Python hermes dashboard/backend is
-    // never touched. Electron helper processes share this path and must all go.
+    // Ask the root Electron window to close first. Hermes handles window close
+    // with app.quit(), which flushes its logs/state and stops its backend child.
+    // Force is a last-resort fallback only; killing Electron first can leave its
+    // single-instance/runtime state unhealthy for the next ordinary launch.
     const script = [
       "$target = [IO.Path]::GetFullPath($env:SPECTATOR_HERMES_DESKTOP)",
-      "$all = @(Get-CimInstance Win32_Process)",
-      "$ids = [Collections.Generic.HashSet[int]]::new()",
-      "$all | Where-Object {",
+      "$findDesktop = { @(Get-CimInstance Win32_Process | Where-Object {",
       "  $_.ExecutablePath -and ([IO.Path]::GetFullPath($_.ExecutablePath) -ieq $target)",
-      "} | ForEach-Object { [void]$ids.Add([int]$_.ProcessId) }",
+      "}) }",
+      "$all = & $findDesktop",
+      "$roots = @($all | Where-Object { $_.CommandLine -notmatch '--type=' })",
+      "$roots | ForEach-Object {",
+      "  $process = Get-Process -Id $_.ProcessId -ErrorAction SilentlyContinue",
+      "  if ($process) { [void]$process.CloseMainWindow() }",
+      "}",
+      "$deadline = [DateTime]::UtcNow.AddSeconds(8)",
+      "while ((& $findDesktop).Count -gt 0 -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 200 }",
+      "$remainingRoots = @((& $findDesktop) | Where-Object { $_.CommandLine -notmatch '--type=' })",
+      "$remainingRoots | ForEach-Object { & taskkill.exe /PID $_.ProcessId /T 2>$null | Out-Null }",
+      "if ($remainingRoots.Count -gt 0) { Start-Sleep -Seconds 2 }",
+      "$all = & $findDesktop",
+      "$ids = [Collections.Generic.HashSet[int]]::new()",
+      "$all | ForEach-Object { [void]$ids.Add([int]$_.ProcessId) }",
+      "$processes = @(Get-CimInstance Win32_Process)",
       "do {",
       "  $before = $ids.Count",
-      "  $all | Where-Object { $ids.Contains([int]$_.ParentProcessId) } | ForEach-Object { [void]$ids.Add([int]$_.ProcessId) }",
+      "  $processes | Where-Object { $ids.Contains([int]$_.ParentProcessId) } | ForEach-Object { [void]$ids.Add([int]$_.ProcessId) }",
       "} while ($ids.Count -gt $before)",
-      "$all | Where-Object { $ids.Contains([int]$_.ProcessId) } | Sort-Object ProcessId -Descending | ForEach-Object {",
+      "$processes | Where-Object { $ids.Contains([int]$_.ProcessId) } | Sort-Object ProcessId -Descending | ForEach-Object {",
       "  Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue",
       "}",
     ].join("\n");
@@ -63,7 +78,7 @@ export class HermesDesktopManager {
       env: { ...process.env, SPECTATOR_HERMES_DESKTOP: this.executable },
       stdio: "ignore",
     });
-    await wait(700);
+    await wait(300);
   }
 
   launch(remote = false) {
