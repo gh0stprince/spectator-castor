@@ -1,104 +1,189 @@
-# hermes-live
+# Spectator
 
-**Twitch for your agent.** One command turns a running [Hermes Agent](https://github.com/NousResearch/hermes-agent) session into a shareable link where anyone can watch it work — streaming responses, live tool-call cards, approval moments, and a viewer count. Read-only, redacted by default, and Hermes itself never touches the internet.
+**Twitch for your agent.** Spectator turns a running [Hermes Agent](https://github.com/NousResearch/hermes-agent) session into a shareable, read-only broadcast: streamed replies, live tool activity, approval moments, reconnect state, and viewer count.
 
-```
-npx hermes-live --demo        # see it working in 10 seconds, no Hermes needed
-```
+Hermes stays on loopback. A small local tap observes its Desktop connection, converts private gateway frames into a deliberately small event format, scrubs that format, and sends only the safe result to browsers.
 
-## Why
+The CLI is currently named `hermes-live`. The product is Spectator.
 
-Hermes's dashboard and desktop app are deliberately private, single-operator surfaces. There is no safe way to let someone *watch* your agent work. hermes-live adds a broadcast layer: your Hermes stays loopback-only, a small relay subscribes to its event stream, scrubs it, and fans it out to viewers.
+## The 10-second version
 
-## Run it against a real Hermes
+Node 20+ is required. There is one runtime dependency (`ws`) and no build step.
 
 ```bash
-# 1. Start a headless Hermes backend (loopback only — never expose this)
-hermes serve                      # or: hermes dashboard --no-open
-
-# 2. Broadcast it. For Hermes Desktop, enable the loopback tap proxy.
-HERMES_DASHBOARD_SESSION_TOKEN=<token> npx hermes-live --tap-port 9121 --manage-desktop --persist .spectator/session-events.jsonl
-
-# 3. Spectator launches Hermes Desktop through the authenticated local tap.
-#    Press Ctrl+C when finished; it closes that temporary instance and reopens
-#    Hermes normally. If Spectator was force-killed, recover with:
-npx hermes-live --restore-desktop
-
-# 4. Share it (separate terminal)
-cloudflared tunnel --url http://localhost:8787
-# post:  https://<tunnel>.trycloudflare.com/watch#k=<view key printed at startup>
+npm install
+npm test
+npm run demo
 ```
 
-The view key lives in the URL **fragment**, so it is never sent to the tunnel provider or logged by intermediaries. WebSocket upgrades without the key are refused.
+Open the printed `/watch#k=…` URL. Demo mode loops a bundled session and does not need Hermes.
 
-### Windows operator start / stop
+## Why the tap exists
 
-The included scripts keep Hermes recoverable and avoid leaving Desktop stuck in temporary remote mode:
+The first idea was simple: connect a second WebSocket client to Hermes and listen. Real Hermes v0.18.2 taught us that `/api/ws` is a private per-client stream. A passive client connects successfully but does not see the events being delivered to Desktop.
+
+Spectator therefore uses an authenticated, loopback-only transparent proxy:
+
+```text
+Hermes Desktop ──HTTP/WS──► tap :9121 ──HTTP/WS──► Hermes :9119
+                                │
+                                │ copied server events only
+                                ▼
+                         normalize → redact → relay :8787 → viewers
+```
+
+Desktop still talks to Hermes normally. The tap forwards both directions unchanged, but only selected server events and the operator actions needed for display enter the viewer pipeline. All Hermes protocol knowledge remains in `src/adapter.js`.
+
+## Windows operator runbook
+
+Pin a stable `HERMES_DASHBOARD_SESSION_TOKEN` in either `~/.hermes/.env` or `%LOCALAPPDATA%\hermes\.env`. Do not expose the Hermes backend itself.
 
 ```powershell
-# First terminal: keep the loopback-only Hermes backend running
+# Terminal 1 — loopback-only Hermes backend
 hermes dashboard --no-open
 
-# Start Spectator and a managed Hermes Desktop
+# Terminal 2 — Spectator and a managed Hermes Desktop
 .\start-spectator.cmd
 
-# Optional: keep a stable viewer key between starts
+# Optional stable viewer key
 .\start-spectator.cmd -ViewKey <your-view-key>
+```
 
-# Normal stop: press Ctrl+C in the Spectator window.
-# If that window was closed or force-stopped, run:
+Keep the Spectator window open. Normal shutdown is `Ctrl+C` in that window.
+
+If the window was closed or force-stopped, use the recovery path:
+
+```powershell
 .\stop-spectator.cmd
 ```
 
-The start script reads `HERMES_DASHBOARD_SESSION_TOKEN` from the environment, `~/.hermes/.env`, or `%LOCALAPPDATA%\hermes\.env` without printing it. The recovery script targets only Node running `src/cli.js --manage-desktop`. Desktop cleanup matches the exact Hermes Desktop executable path, so it cannot terminate `hermes dashboard`. Both shutdown paths reopen Hermes Desktop normally.
+Both paths close the temporary managed Desktop process tree, remove its remote-mode environment, leave `hermes dashboard` alone, and reopen Hermes Desktop in normal standalone mode. This lifecycle was tested against the real Windows installation; reopening Hermes does not require a reboot.
 
-Flags: `--port <n>` · `--hermes-url <url>` · `--token <t>` · `--tap-port <n>` · `--manage-desktop` · `--desktop-path <path>` · `--restore-desktop` · `--persist <redacted.jsonl>` · `--view-key <key>` · `--demo` · `--record` · `--full-tool-output`
+The scripts read the token without printing it. Live history is stored as normalized, redacted events in the git-ignored `.spectator/` directory.
 
-## Security model (read this before sharing a link)
+## Publish the viewer
 
-- **Hermes is never exposed.** Only the relay is, and only if you start a tunnel.
-- **The tap is loopback-only.** It binds explicitly to `127.0.0.1`, requires the Hermes session token on HTTP and WebSocket requests, and is never tunneled.
-- **Desktop state is restored.** On Windows, `--manage-desktop` keeps the remote URL/token in the temporary Desktop process environment only. Normal Ctrl+C/SIGTERM shutdown closes every helper belonging to that exact Desktop executable, stops the tap, and reopens Hermes without the remote variables. `--restore-desktop` provides the same recovery after a forced kill; the Python Hermes backend is never terminated by this cleanup.
-- **Read-only.** The viewer socket ignores all inbound frames. Nobody can prompt, approve, or control anything through a share link.
-- **Redaction is on by default** (`src/redact.js`):
-  - `sudo.request` / `secret.request` events are dropped before they can reach any viewer.
-  - API-key shapes, bearer tokens, JWTs, `KEY=value` secret lines, and high-entropy blobs are replaced with `[redacted]` in every string, recursively.
-  - Tool **arguments and raw output are hidden** — viewers see tool names and one-line summaries. Opt in to full output with `--full-tool-output` (still secret-scrubbed).
-  - Your home directory path is rewritten to `~`.
-- Residual risk you accept: the agent's *prose* can mention anything it read. Don't broadcast sessions over private material.
-- `--persist` stores only the already-normalized, already-redacted viewer events. It never stores dropped prompt kinds, raw tool arguments/output, or reasoning text.
-- `--record` is different: it records raw Hermes server frames for protocol verification. Treat that fixture as sensitive and do not publish it until reviewed.
-
-## Verifying against your Hermes build (do this once)
-
-The relay speaks the `tui_gateway` JSON-RPC/WebSocket protocol used by Hermes Desktop and the dashboard. Hermes v0.18.2 gives each `/api/ws` client a private event stream, so a second passive client cannot observe Desktop. In `--tap-port` mode, Desktop connects through an authenticated loopback HTTP/WebSocket proxy; the proxy forwards traffic unchanged and copies only server→Desktop event frames into the normalizer. Event payloads can drift between releases, so:
+Cloudflare Quick Tunnel is the only public-link path supported for Day 1:
 
 ```bash
-npx hermes-live --record        # dumps raw frames to fixtures/raw-frames.jsonl
-# drive one full task from the TUI / desktop / Telegram, then inspect the file
+cloudflared tunnel --url http://127.0.0.1:8787
 ```
 
-Verified on **Hermes Agent v0.18.2 (2026.7.7.2)**. Real notifications use `{method:"event", params:{type, session_id, payload}}`. Message deltas contain `{text}` with no message id; tool events use `tool_id`, `name`, `context`, `args`, and `result`; approvals contain no approval id and successful one-time decisions arrive from Desktop as `approval.respond {choice:"once"}`. The adapter generates per-turn message ids, treats `once`/`always` as approved, and maps `session.info` into viewer metadata. Unknown event types degrade to ticker updates instead of breaking the viewer.
+Append the printed viewer path and fragment:
 
-## Architecture
-
-```
-Hermes Desktop ──HTTP/WS──► tap :9121 ──HTTP/WS──► Hermes :9119
-                                │ server events
-                                ▼
-                             adapter ──normalize──► redact ──► relay :8787
-                                                                  │
-                                  browser viewers ◄──ws /ws?key──┘
+```text
+https://<tunnel>.trycloudflare.com/watch#k=<viewer-key>
 ```
 
-- `src/schema.js` — the normalized `WireEvent` shape; nothing else ever reaches a browser
-- `src/adapter.js` — Hermes WS client + authenticated loopback tap + tolerant event mapping + `--record`
-- `src/redact.js` — the module that makes public links safe (tested in `test/`)
-- `src/relay.js` — static viewer + authenticated fan-out + 5,000-event backfill ring
-- `public/index.html` — the broadcast viewer, zero build step
+The `#k=` fragment is not included in the initial HTTP navigation or referrer. Viewer JavaScript uses it to authenticate the subsequent WebSocket upgrade. As with any hosted tunnel, the tunnel provider terminates the public TLS connection; use a random viewer key and stop the tunnel when the broadcast ends.
 
-## Roadmap
+Tailscale is intentionally not included yet. Cloudflare gives the public, phone-friendly launch path we need; another networking mode would add documentation and support surface before we know it is useful.
 
-Rooms (multiple humans, one agent), a session-export replay player, and an approval deck are built on this same event wire. This repo stays read-only spectate on purpose.
+## What viewers see
+
+- Operator prompts and Hermes replies in chronological, session-scoped order.
+- Streaming text with a live caret.
+- Tool name, safe summary, running/completed/failed state, and approval resolution.
+- Reconnecting and recovered states without refreshing the page.
+- Viewer count and current model/session metadata.
+- Persistent light and dark themes, defaulting to the viewer's system preference.
+
+The viewer is a single self-contained HTML file. It requests no fonts, scripts, images, analytics, or other third-party assets.
+
+## Safety boundary
+
+Every event passes through `src/redact.js` before buffering, persistence, or fan-out.
+
+- `sudo.request` and `secret.request` are dropped entirely.
+- API keys, bearer tokens, JWTs, secret-looking environment lines, and long high-entropy values become `[redacted]`.
+- Tool arguments, raw output, and private reasoning are hidden by default.
+- Home-directory paths become `~`.
+- The viewer is read-only; inbound WebSocket messages are ignored.
+- The tap binds only to `127.0.0.1` and requires the Hermes dashboard token.
+- The relay requires a separate viewer key and refuses an incorrect key with HTTP 401.
+- Static responses use CSP, no-referrer, no-store, frame denial, MIME sniffing protection, and a restrictive permissions policy.
+
+`--full-tool-output` is an explicit host opt-in. Secret scrubbing still applies, but the safest public default is names and summaries only.
+
+`--persist` stores the already-normalized and already-redacted viewer stream. `--record` is different: it captures raw Hermes server frames for protocol work. Treat raw recordings as sensitive, keep them out of public links and commits, and delete them after verification.
+
+Residual risk remains: Hermes can repeat private material in ordinary prose. Do not broadcast an agent working over data you would not show to the audience.
+
+## What the real protocol looked like
+
+Verified with **Hermes Agent v0.18.2 (2026.7.7.2)**.
+
+Notifications arrived as:
+
+```json
+{"method":"event","params":{"type":"message.delta","session_id":"…","payload":{"text":"Hello"}}}
+```
+
+Important differences from the original guesses:
+
+- The event name lives at `params.type`; the payload lives at `params.payload`.
+- Message deltas carry text but usually no message ID, so Spectator creates restart-unique turn IDs.
+- Tools use `tool_id`, `name`, `context`, `args`, and `result`.
+- A successful one-time approval returns `approval.respond {choice:"once"}`, not the guessed `approve` value.
+- `session.info` carries the model and running state.
+- Hermes emits reasoning events; Spectator converts them to a generic thinking status and never exposes the text.
+
+Unknown events degrade to status updates instead of crashing the broadcast.
+
+## Acceptance evidence
+
+The Day 1 path was exercised end to end with real Hermes:
+
+- Streamed replies reached the viewer in roughly one second.
+- Tool cards appeared and resolved; approval decisions displayed correctly.
+- Killing and restarting Hermes produced reconnect/recovery without a page refresh.
+- A planted fake credential reached the public viewer only as `[redacted]`.
+- Public WebSocket frames contained no planted key, privileged prompt events, raw tool fields, or reasoning.
+- The persisted redacted stream contained no planted key; raw recording was disabled and removed.
+- A wrong viewer key received HTTP 401.
+- Managed start, clean stop, recovery stop, and normal Hermes reopen all passed on Windows.
+- Dark and light viewer states were rendered and visually checked against a real session.
+
+Run the current suite with:
+
+```bash
+npm test
+```
+
+## Useful flags
+
+```text
+--port <n>                 viewer relay port (default 8787)
+--hermes-url <url>         loopback Hermes backend
+--token <value>            Hermes dashboard token
+--tap-port <n>             authenticated Desktop tap
+--manage-desktop           launch/restore Hermes Desktop on Windows
+--desktop-path <path>      override Desktop executable discovery
+--restore-desktop          emergency standalone-Hermes recovery
+--persist <path>           redacted event history
+--view-key <key>           stable viewer key
+--demo                     bundled no-Hermes session
+--record                   sensitive raw protocol capture
+--full-tool-output         opt in to scrubbed tool output
+```
+
+## Project map
+
+```text
+src/cli.js          startup, lifecycle, and operator output
+src/desktop.js      managed Windows Desktop start/restore
+src/adapter.js      Hermes protocol client, normalizer, and tap proxy
+src/redact.js       mandatory browser-facing safety layer
+src/relay.js        viewer server, key auth, redacted history, fan-out
+src/schema.js       the only event shape allowed into a browser
+public/index.html   single-file responsive viewer
+scripts/            Windows operator start/stop runbook
+fixtures/           demo and reviewed normalized fixtures
+test/               protocol, proxy, redaction, lifecycle, and UI invariants
+```
+
+## Scope
+
+Spectator is read-only by design. No chat input, remote approvals, control surface, accounts, analytics, or general-purpose persistence. Day 1 is a safe, understandable broadcast of one real agent session—and then learning from how people use it.
 
 MIT.

@@ -3,149 +3,218 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>hermes-live</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<meta name="color-scheme" content="light dark" />
+<title>Spectator · Hermes live session</title>
+<script>
+  (() => {
+    try {
+      const saved = localStorage.getItem("spectator-theme");
+      const theme = saved === "light" || saved === "dark"
+        ? saved
+        : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+    } catch {}
+  })();
+</script>
 <style>
   :root {
-    --ink: #0B0E14;
-    --panel: #11151D;
-    --panel-2: #151B26;
-    --line: #1E2530;
-    --text: #C8CFDB;
-    --bright: #EEF2F8;
-    --mute: #6B7484;
-    --signal: #FFB454;   /* phosphor amber — the broadcast color */
-    --live: #FF4D4D;     /* reserved for the LIVE dot only */
-    --ok: #4FD6BE;
-    --err: #FF6B6B;
-    --human: #7AA2F7;
-    --mono: "IBM Plex Mono", ui-monospace, monospace;
-    --disp: "Space Grotesk", system-ui, sans-serif;
+    --canvas: #111312;
+    --surface: #171918;
+    --surface-raised: #1d201e;
+    --border: #2c302d;
+    --text: #d8dbd7;
+    --strong: #f5f5f1;
+    --muted: #8c928d;
+    --accent: #e17b42;
+    --live: #ef5350;
+    --success: #65b88a;
+    --danger: #e26d68;
+    --human: #83a7dc;
+    --shadow: 0 8px 30px rgb(0 0 0 / 18%);
+    --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   }
+
+  :root[data-theme="light"] {
+    --canvas: #f4f2ed;
+    --surface: #fbfaf7;
+    --surface-raised: #ffffff;
+    --border: #d8d4cc;
+    --text: #454640;
+    --strong: #1c1e1b;
+    --muted: #747770;
+    --accent: #b95420;
+    --live: #c93632;
+    --success: #287c50;
+    --danger: #b5413d;
+    --human: #355f9b;
+    --shadow: 0 8px 30px rgb(43 38 30 / 9%);
+  }
+
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body {
-    background: var(--ink); color: var(--text);
-    font: 15px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--canvas); color: var(--text);
+    font: 15px/1.65 var(--sans);
     display: flex; flex-direction: column;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* ── header ─────────────────────────────────────────── */
   header {
-    display: flex; align-items: center; gap: 14px;
-    padding: 12px 18px; border-bottom: 1px solid var(--line);
-    background: color-mix(in srgb, var(--ink) 88%, black);
+    flex: none;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--canvas) 92%, transparent);
+    backdrop-filter: blur(16px);
     position: sticky; top: 0; z-index: 10;
   }
-  .wordmark { font: 700 15px/1 var(--disp); letter-spacing: .06em; color: var(--bright); }
-  .wordmark em { font-style: normal; color: var(--signal); }
+  .topbar {
+    width: min(100%, 1040px); min-height: 58px; margin: 0 auto; padding: 10px 24px;
+    display: grid; grid-template-columns: minmax(190px, auto) minmax(100px, 1fr) auto;
+    align-items: center; gap: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .wordmark { font: 700 13px/1 var(--sans); letter-spacing: .13em; color: var(--strong); }
   .pill {
     display: inline-flex; align-items: center; gap: 6px;
     font: 500 11px/1 var(--mono); letter-spacing: .12em;
-    padding: 5px 9px; border: 1px solid var(--line); border-radius: 3px; color: var(--mute);
+    color: var(--muted);
   }
-  .pill.live { color: var(--bright); border-color: #3a2626; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mute); }
+  .pill.live { color: var(--strong); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .pill.live .dot { background: var(--live); animation: pulse 1.6s ease-in-out infinite; }
-  @keyframes pulse { 50% { opacity: .35; } }
-  .title { font: 500 14px var(--disp); color: var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .spacer { flex: 1; }
-  .chip { font: 400 11px var(--mono); color: var(--mute); border: 1px solid var(--line); padding: 4px 8px; border-radius: 3px; white-space: nowrap; }
-  .viewers { font: 500 12px var(--mono); color: var(--signal); white-space: nowrap; }
+  .title { font: 600 14px var(--sans); color: var(--strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-width: 0; }
+  .chip, .viewers { font: 500 11px var(--mono); color: var(--muted); white-space: nowrap; }
+  .viewers { color: var(--accent); }
+  .theme-toggle {
+    min-width: 50px; height: 34px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px;
+    display: grid; place-items: center; color: var(--strong); background: var(--surface);
+    font: 600 12px var(--sans); cursor: pointer;
+  }
+  .theme-toggle:hover { border-color: var(--muted); background: var(--surface-raised); }
+  .theme-toggle:focus-visible, #jump:focus-visible, .card-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  /* ── transcript ─────────────────────────────────────── */
   main { flex: 1; overflow-y: auto; scroll-behavior: smooth; }
-  @media (prefers-reduced-motion: reduce) { main { scroll-behavior: auto; } .pill.live .dot { animation: none; } }
-  .feed { max-width: 720px; margin: 0 auto; padding: 26px 18px 120px; display: flex; flex-direction: column; gap: 16px; }
+  .feed { width: min(100%, 840px); margin: 0 auto; padding: 38px 24px 126px; display: flex; flex-direction: column; gap: 0; }
 
-  .turn { display: flex; flex-direction: column; gap: 4px; }
-  .who { font: 500 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
-  .who.agent { color: var(--signal); }
+  .turn {
+    display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 22px;
+    padding: 21px 0; border-bottom: 1px solid var(--border);
+    animation: event-in 180ms ease-out both;
+  }
+  .who { padding-top: 2px; font: 600 10px/1.5 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+  .who.agent { color: var(--accent); }
   .who.human { color: var(--human); }
-  .msg { color: var(--bright); white-space: pre-wrap; word-wrap: break-word; }
-  .msg code { font: 13px var(--mono); background: var(--panel-2); border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; }
-  .caret { display: inline-block; width: 8px; height: 15px; background: var(--signal); vertical-align: -2px; animation: pulse 1s steps(2) infinite; }
+  .msg { color: var(--strong); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg strong { font-weight: 700; }
+  .msg code { font: 13px var(--mono); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
 
   .card {
-    border: 1px solid var(--line); border-left: 2px solid var(--mute);
-    background: var(--panel); border-radius: 4px; overflow: hidden;
+    margin-left: 130px; border-bottom: 1px solid var(--border);
+    background: transparent; overflow: hidden; animation: event-in 180ms ease-out both;
   }
-  .card.running { border-left-color: var(--signal); }
-  .card.ok { border-left-color: var(--ok); }
-  .card.error { border-left-color: var(--err); }
-  .card.approval { border-left-color: var(--signal); background: color-mix(in srgb, var(--panel) 92%, var(--signal)); }
+  .card.approval { margin-top: 12px; margin-bottom: 12px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--surface); }
   .card-head {
-    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
-    font: 500 12.5px var(--mono); color: var(--text); cursor: pointer; user-select: none;
+    width: 100%; display: grid; grid-template-columns: 74px minmax(80px, auto) minmax(0, 1fr);
+    align-items: center; gap: 12px; padding: 13px 0;
+    font: 500 12px var(--mono); color: var(--text); cursor: pointer; user-select: none;
+    border: 0; background: transparent; text-align: left;
   }
-  .card-head .tname { color: var(--bright); }
-  .card-head .tsum { color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .badge { font: 500 10px var(--mono); letter-spacing: .08em; }
-  .badge.run { color: var(--signal); }
-  .badge.ok { color: var(--ok); }
-  .badge.err { color: var(--err); }
-  .badge.wait { color: var(--signal); animation: pulse 1.4s ease-in-out infinite; }
-  .card-body { display: none; border-top: 1px solid var(--line); padding: 10px 12px; }
+  .card-head .tname { color: var(--strong); font-weight: 600; }
+  .card-head .tsum { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font: 600 10px var(--mono); letter-spacing: .06em; }
+  .badge.run, .badge.wait { color: var(--accent); }
+  .badge.ok { color: var(--success); }
+  .badge.err { color: var(--danger); }
+  .badge.wait { animation: pulse 1.4s ease-in-out infinite; }
+  .card-body { display: none; border-top: 1px solid var(--border); padding: 12px 0 14px 86px; }
   .card.open .card-body { display: block; }
   .card-body pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--text); white-space: pre-wrap; word-wrap: break-word; }
-  .hint { font: 11px var(--mono); color: var(--mute); }
+  .hint { font: 11px var(--mono); color: var(--muted); }
 
-  .sys { font: 12px var(--mono); color: var(--mute); text-align: center; }
+  .sys { margin: 18px 0; font: 11px var(--mono); color: var(--muted); text-align: center; }
 
-  /* ── on-air ticker (signature) ──────────────────────── */
   .ticker {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-    display: flex; align-items: stretch;
-    background: color-mix(in srgb, var(--ink) 84%, black);
-    border-top: 1px solid var(--line);
+    min-height: 48px; display: flex; align-items: stretch;
+    background: color-mix(in srgb, var(--canvas) 94%, transparent);
+    border-top: 1px solid var(--border); backdrop-filter: blur(16px);
   }
   .ticker .tag {
-    display: flex; align-items: center; padding: 0 14px;
-    font: 700 11px var(--disp); letter-spacing: .18em; color: var(--ink);
-    background: var(--signal);
+    width: 108px; display: flex; align-items: center; justify-content: center;
+    font: 700 10px var(--sans); letter-spacing: .14em; color: var(--canvas); background: var(--accent);
   }
   .ticker .state {
-    flex: 1; display: flex; align-items: center; gap: 10px;
-    padding: 12px 14px; font: 500 12.5px var(--mono); color: var(--bright);
+    width: min(100%, 732px); display: flex; align-items: center; gap: 10px;
+    padding: 12px 24px; font: 500 12px var(--mono); color: var(--strong);
     overflow: hidden; white-space: nowrap;
   }
-  .ticker .detail { color: var(--mute); overflow: hidden; text-overflow: ellipsis; }
-  .ticker.idle .tag { background: var(--line); color: var(--mute); }
+  .ticker .detail { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .ticker.idle .tag { background: var(--border); color: var(--muted); }
 
   #jump {
-    position: fixed; right: 18px; bottom: 58px; z-index: 11; display: none;
-    font: 500 12px var(--mono); color: var(--ink); background: var(--signal);
-    border: 0; border-radius: 3px; padding: 8px 12px; cursor: pointer;
+    position: fixed; right: 24px; bottom: 66px; z-index: 11; display: none;
+    font: 600 12px var(--sans); color: var(--canvas); background: var(--accent);
+    border: 0; border-radius: 8px; padding: 9px 12px; cursor: pointer; box-shadow: var(--shadow);
   }
 
-  .gate { max-width: 460px; margin: 18vh auto 0; padding: 0 18px; text-align: center; }
-  .gate h1 { font: 700 22px var(--disp); color: var(--bright); }
-  .gate p { color: var(--mute); font: 13px var(--mono); }
+  .gate { max-width: 460px; margin: 22vh auto 0; padding: 0 18px; text-align: center; }
+  .gate h1 { margin: 0 0 9px; font: 700 22px var(--sans); letter-spacing: -.02em; color: var(--strong); }
+  .gate p { margin: 0; color: var(--muted); font: 12px var(--mono); }
+
+  @keyframes pulse { 50% { opacity: .36; } }
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes event-in { from { opacity: 0; transform: translateY(4px); } }
+
+  @media (max-width: 720px) {
+    .topbar { grid-template-columns: 1fr auto; gap: 8px 14px; padding: 10px 16px; }
+    .title { grid-column: 1 / -1; grid-row: 2; font-size: 13px; }
+    .meta { grid-column: 2; grid-row: 1; }
+    .chip { display: none; }
+    .feed { padding: 22px 16px 116px; }
+    .turn { grid-template-columns: 1fr; gap: 7px; padding: 18px 0; }
+    .card { margin-left: 0; }
+    .card-head { grid-template-columns: 68px minmax(68px, auto) minmax(0, 1fr); gap: 8px; }
+    .card-body { padding-left: 76px; }
+    .ticker .tag { width: 86px; }
+    .ticker .state { padding-inline: 14px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  }
 </style>
 </head>
 <body>
   <header>
-    <span class="wordmark">HERMES<em>·LIVE</em></span>
-    <span class="pill" id="livePill"><span class="dot"></span><span id="pillText">OFFLINE</span></span>
-    <span class="title" id="title"></span>
-    <span class="spacer"></span>
-    <span class="chip" id="model" hidden></span>
-    <span class="viewers" id="viewers" hidden></span>
+    <div class="topbar">
+      <div class="brand">
+        <span class="wordmark">SPECTATOR</span>
+        <span class="pill" id="livePill"><span class="dot"></span><span id="pillText">OFFLINE</span></span>
+      </div>
+      <span class="title" id="title">Hermes session</span>
+      <div class="meta">
+        <span class="chip" id="model" hidden></span>
+        <span class="viewers" id="viewers" hidden></span>
+        <button class="theme-toggle" id="themeToggle" type="button">Theme</button>
+      </div>
+    </div>
   </header>
 
   <main id="main">
     <div class="feed" id="feed">
       <div class="gate" id="gate">
-        <h1>hermes-live</h1>
-        <p id="gateMsg">connecting…</p>
+        <h1>Waiting for Hermes</h1>
+        <p id="gateMsg">Connecting to the live session…</p>
       </div>
     </div>
   </main>
 
-  <button id="jump">↓ jump to live</button>
+  <button id="jump" type="button">Jump to live ↓</button>
 
-  <div class="ticker idle" id="ticker">
+  <div class="ticker idle" id="ticker" role="status" aria-live="polite">
     <span class="tag" id="tickerTag">STANDBY</span>
     <span class="state"><span id="tickerState">waiting for signal</span><span class="detail" id="tickerDetail"></span></span>
   </div>
@@ -154,6 +223,22 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const feed = $("feed"), main = $("main");
+  const themeToggle = $("themeToggle");
+  const showTheme = () => {
+    const current = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+    const next = current === "dark" ? "light" : "dark";
+    themeToggle.textContent = next[0].toUpperCase() + next.slice(1);
+    themeToggle.setAttribute("aria-label", `Use ${next} theme`);
+    themeToggle.title = `Use ${next} theme`;
+  };
+  themeToggle.onclick = () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    document.documentElement.style.colorScheme = next;
+    try { localStorage.setItem("spectator-theme", next); } catch {}
+    showTheme();
+  };
+  showTheme();
   const key = new URLSearchParams(location.hash.slice(1)).get("k");
   if (!key) { $("gateMsg").textContent = "missing view key — use the full share link (…/watch#k=…)"; return; }
 
@@ -209,13 +294,16 @@
     const card = document.createElement("div");
     card.className = "card running";
     card.innerHTML = `
-      <div class="card-head">
-        <span class="badge run">▸ RUN</span>
+      <button class="card-head" type="button" aria-expanded="false">
+        <span class="badge run">RUNNING</span>
         <span class="tname">${fmt(p.name || "tool")}</span>
         <span class="tsum">${fmt(p.summary || "")}</span>
-      </div>
+      </button>
       <div class="card-body"><pre></pre></div>`;
-    card.querySelector(".card-head").onclick = () => card.classList.toggle("open");
+    card.querySelector(".card-head").onclick = (event) => {
+      const open = card.classList.toggle("open");
+      event.currentTarget.setAttribute("aria-expanded", String(open));
+    };
     add(card);
     return { card, badge: card.querySelector(".badge"), summary: card.querySelector(".tsum"), pre: card.querySelector("pre") };
   }
@@ -263,7 +351,7 @@
       t.card.classList.remove("running");
       t.card.classList.add(ok ? "ok" : "error");
       t.badge.className = "badge " + (ok ? "ok" : "err");
-      t.badge.textContent = ok ? "✓ DONE" : "✗ FAIL";
+      t.badge.textContent = ok ? "DONE" : "FAILED";
       if (ev.payload.summary) t.card.querySelector(".tsum").innerHTML = fmt(ev.payload.summary);
       if (ev.payload.outputHidden && !t.pre.textContent) t.pre.innerHTML = '<span class="hint">tool output hidden by the host</span>';
       stick();
@@ -273,7 +361,7 @@
       card.className = "card approval open";
       card.innerHTML = `
         <div class="card-head">
-          <span class="badge wait">⏸ APPROVAL</span>
+          <span class="badge wait">APPROVAL</span>
           <span class="tname">${fmt(ev.payload.name || "action")}</span>
           <span class="tsum">${fmt(ev.payload.summary || "")}</span>
         </div>
@@ -287,7 +375,7 @@
       const ok = ev.payload.decision === "approve";
       const b = card.querySelector(".badge");
       b.className = "badge " + (ok ? "ok" : "err");
-      b.textContent = ok ? "✓ APPROVED" : "✗ DENIED";
+      b.textContent = ok ? "APPROVED" : "DENIED";
       card.querySelector("pre").textContent = ok ? "approved by the operator" : "denied by the operator";
       card.classList.remove("approval");
       card.classList.add(ok ? "ok" : "error");
@@ -302,7 +390,7 @@
     "presence.state": (ev) => {
       if (typeof ev.payload.viewers === "number") {
         $("viewers").hidden = false;
-        $("viewers").textContent = "◉ " + ev.payload.viewers + " watching";
+        $("viewers").textContent = ev.payload.viewers + (ev.payload.viewers === 1 ? " viewer" : " viewers");
       }
     },
     "status": (ev) => {
