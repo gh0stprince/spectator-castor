@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "A safe, read-only live viewer for Hermes Agent sessions",
   "scripts": {
-    "test": "node --test test/",
+    "test": "node --test",
     "demo": "node src/cli.js --demo",
     "start": "node src/cli.js"
   },
