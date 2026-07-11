@@ -4,19 +4,21 @@
 
 Hermes stays on loopback. A small local tap observes its Desktop connection, converts private gateway frames into a deliberately small event format, scrubs that format, and sends only the safe result to browsers.
 
-The CLI is currently named `hermes-live`. The product is Spectator.
-
 ## The 10-second version
 
 Node 20+ is required. There is one runtime dependency (`ws`) and no build step.
 
 ```bash
+git clone https://github.com/MustafaK99/spectator.git
+cd spectator
 npm install
 npm test
 npm run demo
 ```
 
 Open the printed `/watch#k=…` URL. Demo mode loops a bundled session and does not need Hermes.
+
+The package exposes a `spectator` command when installed globally or linked with `npm link`. The earlier `hermes-live` command remains as a compatibility alias. From a source checkout, the documented `npm run` commands need no global install.
 
 ## Why the tap exists
 
@@ -187,4 +189,10 @@ test/               protocol, proxy, redaction, lifecycle, and UI invariants
 
 Spectator is read-only by design. No chat input, remote approvals, control surface, accounts, analytics, or general-purpose persistence. It stays focused on safely broadcasting one real agent session.
 
-MIT.
+## Contributing and support
+
+Bug reports and small, focused improvements are welcome in [GitHub Issues](https://github.com/MustafaK99/spectator/issues). Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Security problems should be reported privately as described in [SECURITY.md](SECURITY.md), not filed as public issues.
+
+Spectator is an independent community project and is not affiliated with or endorsed by Nous Research.
+
+Released under the [MIT License](LICENSE).

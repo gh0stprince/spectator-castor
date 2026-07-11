@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// hermes-live — Twitch for your agent.
-//   hermes-live                connect to a running Hermes backend and start broadcasting
-//   hermes-live --demo         no Hermes needed: play a bundled session on loop
-//   hermes-live --record       also dump raw gateway frames to fixtures/raw-frames.jsonl
+// Spectator — Twitch for your agent.
+//   spectator                connect to a running Hermes backend and start broadcasting
+//   spectator --demo         no Hermes needed: play a bundled session on loop
+//   spectator --record       also dump raw gateway frames to fixtures/raw-frames.jsonl
 // Flags: --port <relay port> --hermes-url <http://127.0.0.1:9119> --token <session token>
 //        --full-tool-output   (off by default: viewers see tool names + summaries only)
 
