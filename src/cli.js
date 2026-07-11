@@ -9,6 +9,7 @@
 import { Relay } from "./relay.js";
 import { HermesAdapter, HermesTapProxy, probeHermes } from "./adapter.js";
 import { startDemo } from "./demo.js";
+import { HermesDesktopManager } from "./desktop.js";
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`);
@@ -27,9 +28,44 @@ const token = opt("token", process.env.HERMES_DASHBOARD_SESSION_TOKEN ?? "");
 const viewKey = opt("view-key", process.env.SPECTATOR_VIEW_KEY ?? null);
 const tapPort = Number(opt("tap-port", 0));
 const persistPath = opt("persist", null);
+const manageDesktop = flag("manage-desktop");
+const desktopPath = opt("desktop-path", undefined);
+
+if (flag("restore-desktop")) {
+  const desktop = new HermesDesktopManager({ executable: desktopPath });
+  await desktop.restoreNormal();
+  console.log("Hermes Desktop restored to normal standalone mode.");
+  process.exit(0);
+}
 
 const relay = new Relay({ port, viewKey, fullToolOutput: flag("full-tool-output"), persistPath });
 await relay.start();
+let adapter = null;
+let desktop = null;
+let shuttingDown = false;
+
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(dim(`\nStopping Spectator (${signal})…`));
+  try {
+    if (desktop) await desktop.stop();
+    adapter?.stop();
+    relay.stop();
+    if (desktop) {
+      desktop.launch(false);
+      console.log("Hermes Desktop restored to normal standalone mode.");
+    }
+  } catch (err) {
+    console.error(`Hermes restore failed: ${err.message}`);
+    console.error(`Run: node src/cli.js --restore-desktop${desktopPath ? ` --desktop-path "${desktopPath}"` : ""}`);
+    process.exitCode = 1;
+  }
+  setTimeout(() => process.exit(process.exitCode ?? 0), 150).unref();
+}
+
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
 if (flag("demo")) {
   startDemo(relay);
@@ -51,12 +87,21 @@ if (flag("demo")) {
     console.error(`Set ${amber("HERMES_DASHBOARD_SESSION_TOKEN")} (pin one in ~/.hermes/.env so it survives restarts) or pass ${amber("--token")}.\n`);
     process.exit(1);
   }
-  const adapter = tapPort
+  adapter = tapPort
     ? new HermesTapProxy({ upstreamUrl: hermesUrl, token, port: tapPort, recordPath: flag("record") ? "fixtures/raw-frames.jsonl" : null })
     : new HermesAdapter({ url: hermesUrl, token, recordPath: flag("record") ? "fixtures/raw-frames.jsonl" : null });
   adapter.on("event", (ev) => relay.ingest(ev));
   adapter.on("error", (err) => console.error(dim(`[adapter] ${err.message}`)));
   await adapter.start();
+  if (manageDesktop) {
+    if (!tapPort) throw new Error("--manage-desktop requires --tap-port");
+    desktop = new HermesDesktopManager({
+      executable: desktopPath,
+      remoteUrl: `http://127.0.0.1:${tapPort}`,
+      token,
+    });
+    await desktop.startManaged();
+  }
   console.log(`\n${bold("hermes-live")} ${dim(`→ ${hermesUrl}`)}${tapPort ? amber(`  tap: http://127.0.0.1:${tapPort}`) : ""}${flag("record") ? amber("  ● recording raw frames") : ""}`);
 }
 
@@ -66,3 +111,4 @@ console.log(amber(`    cloudflared tunnel --url http://localhost:${port}`));
 console.log(dim(`    then share:  <tunnel-url>/watch#k=${relay.viewKey}\n`));
 console.log(dim(`  Redaction is ON: secrets scrubbed, tool args/output hidden (names + summaries shown).`));
 console.log(dim(`  Hermes itself is never exposed — only this relay.\n`));
+if (desktop) console.log(dim(`  Hermes Desktop is managed: stopping Spectator restores normal standalone mode.\n`));

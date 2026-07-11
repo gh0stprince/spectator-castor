@@ -17,11 +17,12 @@ Hermes's dashboard and desktop app are deliberately private, single-operator sur
 hermes serve                      # or: hermes dashboard --no-open
 
 # 2. Broadcast it. For Hermes Desktop, enable the loopback tap proxy.
-HERMES_DASHBOARD_SESSION_TOKEN=<token> npx hermes-live --tap-port 9121 --persist fixtures/session-events.jsonl
+HERMES_DASHBOARD_SESSION_TOKEN=<token> npx hermes-live --tap-port 9121 --manage-desktop --persist .spectator/session-events.jsonl
 
-# 3. Point Hermes Desktop at the authenticated local tap (not the public relay)
-HERMES_DESKTOP_REMOTE_URL=http://127.0.0.1:9121
-HERMES_DESKTOP_REMOTE_TOKEN=<same-token>
+# 3. Spectator launches Hermes Desktop through the authenticated local tap.
+#    Press Ctrl+C when finished; it closes that temporary instance and reopens
+#    Hermes normally. If Spectator was force-killed, recover with:
+npx hermes-live --restore-desktop
 
 # 4. Share it (separate terminal)
 cloudflared tunnel --url http://localhost:8787
@@ -30,12 +31,34 @@ cloudflared tunnel --url http://localhost:8787
 
 The view key lives in the URL **fragment**, so it is never sent to the tunnel provider or logged by intermediaries. WebSocket upgrades without the key are refused.
 
-Flags: `--port <n>` · `--hermes-url <url>` · `--token <t>` · `--tap-port <n>` · `--persist <redacted.jsonl>` · `--view-key <key>` · `--demo` · `--record` · `--full-tool-output`
+### Windows operator start / stop
+
+The included scripts keep Hermes recoverable and avoid leaving Desktop stuck in temporary remote mode:
+
+```powershell
+# First terminal: keep the loopback-only Hermes backend running
+hermes dashboard --no-open
+
+# Start Spectator and a managed Hermes Desktop
+.\start-spectator.cmd
+
+# Optional: keep a stable viewer key between starts
+.\start-spectator.cmd -ViewKey <your-view-key>
+
+# Normal stop: press Ctrl+C in the Spectator window.
+# If that window was closed or force-stopped, run:
+.\stop-spectator.cmd
+```
+
+The start script reads `HERMES_DASHBOARD_SESSION_TOKEN` from the environment, `~/.hermes/.env`, or `%LOCALAPPDATA%\hermes\.env` without printing it. The recovery script targets only Node running `src/cli.js --manage-desktop`. Desktop cleanup matches the exact Hermes Desktop executable path, so it cannot terminate `hermes dashboard`. Both shutdown paths reopen Hermes Desktop normally.
+
+Flags: `--port <n>` · `--hermes-url <url>` · `--token <t>` · `--tap-port <n>` · `--manage-desktop` · `--desktop-path <path>` · `--restore-desktop` · `--persist <redacted.jsonl>` · `--view-key <key>` · `--demo` · `--record` · `--full-tool-output`
 
 ## Security model (read this before sharing a link)
 
 - **Hermes is never exposed.** Only the relay is, and only if you start a tunnel.
 - **The tap is loopback-only.** It binds explicitly to `127.0.0.1`, requires the Hermes session token on HTTP and WebSocket requests, and is never tunneled.
+- **Desktop state is restored.** On Windows, `--manage-desktop` keeps the remote URL/token in the temporary Desktop process environment only. Normal Ctrl+C/SIGTERM shutdown closes every helper belonging to that exact Desktop executable, stops the tap, and reopens Hermes without the remote variables. `--restore-desktop` provides the same recovery after a forced kill; the Python Hermes backend is never terminated by this cleanup.
 - **Read-only.** The viewer socket ignores all inbound frames. Nobody can prompt, approve, or control anything through a share link.
 - **Redaction is on by default** (`src/redact.js`):
   - `sudo.request` / `secret.request` events are dropped before they can reach any viewer.
