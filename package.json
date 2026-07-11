@@ -1,18 +1,46 @@
 {
-  "name": "hermes-live",
+  "name": "spectator",
   "version": "0.1.0",
-  "description": "Twitch for your agent — a shareable live spectate link for any running Hermes Agent session",
-  "main": "index.js",
+  "description": "A safe, read-only live viewer for Hermes Agent sessions",
   "scripts": {
     "test": "node --test test/",
     "demo": "node src/cli.js --demo",
     "start": "node src/cli.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "hermes-agent",
+    "agent",
+    "livestream",
+    "spectator",
+    "websocket"
+  ],
+  "author": "MustafaK99",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MustafaK99/spectator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MustafaK99/spectator/issues"
+  },
+  "homepage": "https://github.com/MustafaK99/spectator#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "src/",
+    "public/",
+    "fixtures/demo-session.jsonl",
+    "scripts/",
+    "start-spectator.cmd",
+    "stop-spectator.cmd",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
   "type": "module",
   "bin": {
+    "spectator": "./src/cli.js",
     "hermes-live": "./src/cli.js"
   },
   "dependencies": {
