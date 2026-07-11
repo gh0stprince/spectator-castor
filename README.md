@@ -63,7 +63,7 @@ The scripts discover the dashboard token without printing or persisting it. Live
 
 ## Publish the viewer
 
-Cloudflare Quick Tunnel is the only public-link path supported for Day 1:
+Cloudflare Quick Tunnel is the currently supported public-link path:
 
 ```bash
 cloudflared tunnel --url http://127.0.0.1:8787
@@ -132,7 +132,7 @@ Unknown events degrade to status updates instead of crashing the broadcast.
 
 ## Acceptance evidence
 
-The Day 1 path was exercised end to end with real Hermes:
+The complete path was exercised end to end with real Hermes:
 
 - Streamed replies reached the viewer in roughly one second.
 - Tool cards appeared and resolved; approval decisions displayed correctly.
@@ -185,6 +185,6 @@ test/               protocol, proxy, redaction, lifecycle, and UI invariants
 
 ## Scope
 
-Spectator is read-only by design. No chat input, remote approvals, control surface, accounts, analytics, or general-purpose persistence. Day 1 is a safe, understandable broadcast of one real agent session—and then learning from how people use it.
+Spectator is read-only by design. No chat input, remote approvals, control surface, accounts, analytics, or general-purpose persistence. It stays focused on safely broadcasting one real agent session.
 
 MIT.
