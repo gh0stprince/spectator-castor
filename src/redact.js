@@ -16,18 +16,21 @@ const PATTERNS = [
   /\bAKIA[0-9A-Z]{16}\b/g,                  // AWS access key id
   /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}\b/g, // JWT
   /\bBearer\s+[A-Za-z0-9._~+/=-]{16,}/gi,
-  // .env style lines: KEY=value where KEY smells secret
-  /^([A-Z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL)[A-Z0-9_]*)\s*=\s*\S+/gim,
   // long high-entropy blobs (base64/hex, 40+ chars, no spaces)
   /\b[A-Fa-f0-9]{40,}\b/g,
   /\b[A-Za-z0-9+/]{48,}={0,2}\b/g,
 ];
 
+// Kept separate because this is the only pattern with a capture group that
+// should be preserved in the replacement. For capture-free patterns, the
+// second replace-callback argument is the match offset, not a captured value.
+const ENV_SECRET_PATTERN = /^([A-Z0-9_]*(?:TOKEN|KEY|SECRET|PASSWORD|PASSWD|AUTH|CREDENTIAL)[A-Z0-9_]*)\s*=\s*\S+/gim;
+
 export function scrubString(s) {
   if (typeof s !== "string" || s.length === 0) return s;
   let out = s;
-  for (const re of PATTERNS) out = out.replace(re, (m, key) =>
-    key ? `${key}=[redacted]` : "[redacted]");
+  for (const re of PATTERNS) out = out.replace(re, "[redacted]");
+  out = out.replace(ENV_SECRET_PATTERN, (_match, key) => `${key}=[redacted]`);
   if (HOME && HOME !== "/") out = out.split(HOME).join("~");
   return out;
 }

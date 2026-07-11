@@ -38,6 +38,13 @@ test("scrubs provider key shapes", () => {
   }
 });
 
+test("provider-key replacement contains no match-offset artifact", () => {
+  assert.equal(
+    scrubString(joined("Here's my API key ", joined("sk-", "unit1234567890abcdefghij"), "; check it.")),
+    "Here's my API key [redacted]; check it.",
+  );
+});
+
 test("scrubs env-style secret lines but keeps the key name", () => {
   const out = scrubString("OPENAI_API_KEY=sk-something\nDEBUG=true");
   assert.ok(out.includes("OPENAI_API_KEY=[redacted]"));
