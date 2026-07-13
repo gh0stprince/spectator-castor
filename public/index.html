@@ -1,0 +1,949 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="light dark" />
+<title>Spectator · Hermes live session</title>
+<script>
+  (() => {
+    try {
+      const saved = localStorage.getItem("spectator-theme");
+      const theme = saved === "light" || saved === "dark"
+        ? saved
+        : (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+      document.documentElement.dataset.theme = theme;
+      document.documentElement.style.colorScheme = theme;
+    } catch {}
+  })();
+</script>
+<style>
+  :root {
+    --canvas: #1e1e2e;
+    --surface: #181825;
+    --surface-raised: #11111b;
+    --border: #313244;
+    --border-raised: #45475a;
+    --text: #cdd6f4;
+    --strong: #bac2de;
+    --muted: #6c7086;
+    --accent: #cba6f7;
+    --accent-dim: #f5c2e7;
+    --live: #89dceb;
+    --success: #a6e3a1;
+    --danger: #f38ba8;
+    --human: #89b4fa;
+    --waiting: #f9e2af;
+    --info: #89dceb;
+    --shadow: 0 4px 0 rgb(0 0 0 / 40%);
+    --sans: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    --mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  }
+
+  :root[data-theme="light"] {
+    --canvas: #eff1f5;
+    --surface: #e6e9ef;
+    --surface-raised: #dce0e8;
+    --border: #bcc0cc;
+    --border-raised: #9ca0b0;
+    --text: #4c4f69;
+    --strong: #1e2030;
+    --muted: #8c8fa1;
+    --accent: #fe640b;
+    --accent-dim: #ea76cb;
+    --live: #04a5e5;
+    --success: #40a02b;
+    --danger: #d20f39;
+    --human: #1e66f5;
+    --shadow: 0 4px 0 rgb(0 0 0 / 10%);
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--canvas); color: var(--text);
+    font: 15px/1.65 var(--sans);
+    display: flex; flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :root { --left-rail: 320px; --right-rail: 245px; }
+  header {
+    flex: none; height: 58px; border-bottom: 1px solid var(--border); background: var(--surface);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .topbar {
+    width: 100%; max-width: none; height: 100%; margin: 0; padding: 10px 0;
+    display: grid; grid-template-columns: var(--left-rail) minmax(0, 1fr) var(--right-rail);
+    align-items: center; gap: 0;
+  }
+  .brand { display: flex; align-items: center; min-width: 0; padding-left: 20px; }
+  .wordmark { font: 700 12px var(--mono); letter-spacing: 0; color: var(--success); text-transform: none; }
+  .title { min-width: 0; padding-left: 24px; font: 600 14px var(--sans); color: var(--strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-width: 0; padding-right: 14px; }
+  .chip { font: 500 11px var(--mono); color: var(--muted); white-space: nowrap; }
+
+  .theme-toggle {
+    min-width: 50px; height: 34px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 0;
+    display: grid; place-items: center;
+    color: var(--strong); background: var(--surface);
+    font: 600 11px var(--mono); cursor: pointer;
+    text-transform: uppercase; letter-spacing: .1em;
+  }
+  .theme-toggle:hover {
+    background: var(--border); color: var(--text);
+  }
+  .theme-toggle:focus-visible, #jump:focus-visible, .card-head:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  main { flex: 1; overflow: hidden; display: flex; }
+  .main-inner { flex: 1; overflow-y: auto; scroll-behavior: smooth; display: flex; flex-direction: column; }
+
+  /* ── Tool telemetry sidebar ── */
+  .side-panel {
+    width: 320px; flex: none; border-right: 1px solid var(--border); border-left: 0;
+    background: var(--surface); display: flex; flex-direction: column; overflow: hidden; order: -1;
+  }
+  .route-panel { width: 245px; flex: none; border-left: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; overflow: hidden; }
+
+  .health-panel { flex: none; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .health-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin: 0 10px; background: var(--border); border: 1px solid var(--border); }
+  .health-item { min-width: 0; padding: 7px 8px; background: var(--surface-raised); }
+  .health-label { display: block; color: var(--muted); font: 9px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .health-value { display: block; margin-top: 3px; color: var(--strong); font: 600 10px/1.25 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .health-value.good { color: var(--success); }
+  .kanban-tracker { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; }
+  .kanban-group { margin-bottom: 12px; }
+  .kanban-group-title { display: flex; align-items: center; gap: 7px; padding: 5px 3px; color: var(--muted); font: 700 9px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  .kanban-group-title .count { margin-left: auto; color: var(--text); font-weight: 500; letter-spacing: 0; }
+  .kanban-row { padding: 8px 8px 8px 10px; margin-bottom: 5px; border: 1px solid var(--border); border-left: 2px solid var(--border-raised); background: var(--surface-raised); }
+  .kanban-row.running { border-left-color: var(--success); }
+  .kanban-row.blocked { border-left-color: var(--danger); }
+  .kanban-row.review { border-left-color: var(--waiting); }
+  .kanban-title { color: var(--strong); font: 600 10px/1.35 var(--mono); overflow-wrap: anywhere; }
+  .kanban-meta { display: flex; gap: 7px; margin-top: 4px; color: var(--muted); font: 9px/1.2 var(--mono); }
+  .kanban-assignee { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .route-panel .kanban-route { flex: 1; max-height: none; overflow-y: auto; padding: 18px 14px 22px; border-top: 0; }
+  .route-panel .route-heading { padding: 4px 2px 14px; color: var(--strong); font: 700 14px/1.1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  .route-panel .route-node { position: relative; display: flex; gap: 11px; padding: 13px 4px 13px 10px; color: var(--text); font: 600 15px/1.4 var(--mono); }
+  .route-panel .route-node:not(:last-child)::after { content: "↓"; position: absolute; left: 12px; bottom: -8px; color: var(--border-raised); font-size: 16px; }
+  .route-panel .route-symbol { flex: none; color: var(--text); font-size: 16px; }
+  .route-panel .route-node.running .route-symbol { color: var(--success); }
+  .route-panel .route-node.done .route-symbol { color: var(--accent); }
+  .route-panel .route-node.blocked .route-symbol { color: var(--danger); }
+  .route-panel .route-title { min-width: 0; overflow-wrap: anywhere; }
+
+  .panel-header {
+    flex: none; padding: 10px 14px; border-bottom: 1px solid var(--border);
+    font: 700 10px/1 var(--mono); letter-spacing: .14em; color: var(--muted);
+    text-transform: uppercase; display: flex; align-items: center; gap: 8px;
+  }
+  .panel-header .dot { width: 6px; height: 6px; background: var(--success); border-radius: 50%; }
+  .tool-summary { margin-left: auto; font: 500 10px var(--mono); letter-spacing: 0; text-transform: none; }
+  .tool-telemetry { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; }
+  .telemetry-card { border: 1px solid var(--border); border-left: 2px solid var(--border-raised); background: var(--surface-raised); margin-bottom: 8px; }
+  .telemetry-card.running { border-color: color-mix(in srgb, var(--waiting) 50%, var(--border)); border-left-color: var(--waiting); }
+  .telemetry-card.ok { border-left-color: var(--success); }
+  .telemetry-card.error { border-left-color: var(--danger); }
+  .telemetry-card .card-head { grid-template-columns: minmax(0, 1fr) auto; padding: 9px 10px; gap: 7px; font-size: 11px; }
+  .telemetry-card .tool-name { color: var(--human); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .telemetry-card .telemetry-detail { border-top: 1px solid var(--border); padding: 8px 10px; color: var(--muted); font: 10px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .telemetry-empty { padding: 18px 10px; color: var(--muted); font: 11px/1.6 var(--mono); text-align: center; }
+  .redaction-note { flex: none; padding: 10px 14px; border-top: 1px solid var(--border); color: var(--muted); font: 10px/1.5 var(--mono); }
+  .redaction-note strong { color: var(--waiting); font-weight: 600; }
+
+  .feed { width: min(100%, 840px); margin: 0 auto; padding: 24px 24px 126px; display: flex; flex-direction: column; gap: 0; flex: 1; }
+
+  /* The stream head is a persistent identity/status anchor, not another chat turn. */
+  .stream-head {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 18px;
+    padding: 12px 14px; margin: 0 0 10px; border: 1px solid var(--border-raised);
+    border-left: 3px solid var(--accent); background: var(--surface-raised);
+  }
+  .stream-head-title { color: var(--strong); font: 700 13px/1.35 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .stream-head-model, .stream-head-status { color: var(--muted); font: 10px/1.4 var(--mono); }
+  .stream-head-status { grid-column: 1 / -1; color: var(--live); text-transform: uppercase; letter-spacing: .08em; }
+  .stream-notice {
+    margin: 10px 0; padding: 7px 10px; border-left: 2px solid var(--border-raised);
+    color: var(--muted); background: color-mix(in srgb, var(--surface-raised) 74%, transparent);
+    font: 10px/1.45 var(--mono); text-transform: uppercase; letter-spacing: .05em;
+  }
+
+  .turn { display: grid; grid-template-columns: 108px minmax(0, 1fr); gap: 22px; padding: 16px 0; animation: event-in 180ms ease-out both; }
+  .turn .activity { grid-column: 2; min-width: 0; margin-top: 4px; }
+  .turn .activity .card { margin-left: 0; }
+
+  .who { padding-top: 2px; font: 600 10px/1.5 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+  .who.agent { color: var(--accent); }
+  .who.human { color: var(--human); }
+  .msg { color: var(--strong); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg p { margin: 0 0 10px; }
+  .msg p:last-child { margin-bottom: 0; }
+  .msg h1, .msg h2, .msg h3, .msg h4, .msg h5, .msg h6 { margin: 10px 0 6px; color: var(--strong); line-height: 1.25; }
+  .msg ul, .msg ol { margin: 4px 0 10px 20px; padding: 0; }
+  .msg li { margin: 3px 0; }
+  .msg blockquote { margin: 8px 0; padding-left: 10px; border-left: 2px solid var(--accent); color: var(--muted); }
+  .msg a { color: var(--info); text-decoration: underline; }
+  .msg del { color: var(--muted); }
+  .msg .markdown-code { margin: 8px 0; padding: 10px; overflow-x: auto; white-space: pre; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 4px; }
+  .msg table { width: 100%; margin: 8px 0 12px; border-collapse: collapse; font-size: 12px; }
+  .msg th, .msg td { padding: 5px 8px; border: 1px solid var(--border); text-align: left; vertical-align: top; }
+  .msg th { color: var(--accent); background: var(--surface-raised); font-weight: 700; }
+  .msg tr:nth-child(even) td { background: color-mix(in srgb, var(--surface-raised) 45%, transparent); }
+  .msg strong { font-weight: 700; }
+  .msg code { font: 13px var(--mono); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; }
+  .caret { display: inline-block; width: 7px; height: 15px; margin-left: 2px; background: var(--accent); vertical-align: -2px; animation: blink 1s steps(2) infinite; }
+
+  .card {
+    margin-left: 130px; border-bottom: 1px solid var(--border);
+    border-left: 2px solid var(--border);
+    background: transparent; overflow: hidden; animation: event-in 180ms ease-out both;
+  }
+  .card.approval { margin-top: 12px; margin-bottom: 12px; padding: 0 14px; border: 1px solid var(--accent); border-radius: 0; background: var(--surface); }
+  .card-head {
+    width: 100%; display: grid; grid-template-columns: 74px minmax(80px, auto) minmax(0, 1fr);
+    align-items: center; gap: 12px; padding: 13px 0;
+    font: 500 12px var(--mono); color: var(--text); cursor: pointer; user-select: none;
+    border: 0; background: transparent; text-align: left;
+  }
+  .card-head .tname { color: var(--strong); font-weight: 600; }
+  .card-head .tsum { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { font: 600 10px var(--mono); letter-spacing: .06em; }
+  .badge.run, .badge.wait { color: var(--accent); }
+  .badge.ok { color: var(--success); }
+  .badge.err { color: var(--danger); }
+  .badge.wait { animation: pulse 1.4s ease-in-out infinite; }
+  .card-body { display: none; border-top: 1px solid var(--border); padding: 12px 0 14px 86px; }
+  .card.open .card-body { display: block; }
+  .card-body pre { margin: 0; font: 12.5px/1.55 var(--mono); color: var(--text); white-space: pre-wrap; word-wrap: break-word; }
+  .hint { font: 11px var(--mono); color: var(--muted); }
+
+  .sys { margin: 18px 0; font: 11px var(--mono); color: var(--muted); text-align: center; }
+
+  .ticker {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    min-height: 48px; display: flex; align-items: stretch;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .ticker .tag {
+    width: 108px; display: flex; align-items: center; justify-content: center;
+    font: 700 10px var(--mono); letter-spacing: .14em; color: var(--canvas); background: var(--accent);
+    border-right: 2px solid var(--border);
+  }
+  .ticker .state {
+    width: min(100%, 732px); display: flex; align-items: center; gap: 10px;
+    padding: 12px 24px; font: 500 12px var(--mono); color: var(--strong);
+    overflow: hidden; white-space: nowrap;
+  }
+  .ticker .detail { color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .ticker.idle .tag { background: var(--border); color: var(--muted); }
+
+  #jump {
+    position: fixed; right: 24px; bottom: 66px; z-index: 11; display: none;
+    font: 600 11px var(--mono); color: var(--canvas); background: var(--accent);
+    border: 1px solid var(--accent); border-radius: 0; padding: 9px 14px; cursor: pointer; box-shadow: var(--shadow);
+  }
+
+  .task-announcement { position: fixed; left: 50%; top: 76px; z-index: 20; width: min(680px, calc(100vw - 40px)); transform: translateX(-50%); padding: 14px 18px; border: 1px solid var(--accent); border-left: 4px solid var(--accent); background: color-mix(in srgb, var(--surface) 94%, transparent); box-shadow: var(--shadow); }
+  .task-announcement[hidden] { display: none; }
+  .announcement-kicker { color: var(--accent); font: 700 9px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+  .announcement-title { margin-top: 5px; color: var(--strong); font: 600 13px/1.35 var(--mono); }
+  .announcement-detail { margin-top: 3px; color: var(--muted); font: 10px/1.3 var(--mono); }
+
+  .subagent-tracker {
+    position: fixed; right: 24px; bottom: 66px; z-index: 11; width: min(320px, calc(100vw - 48px));
+    border: 1px solid var(--border-raised); border-left: 3px solid var(--accent); background: var(--surface); box-shadow: var(--shadow);
+  }
+  .subagent-tracker[hidden] { display: none; }
+  .subagent-tracker-head { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-bottom: 1px solid var(--border); color: var(--muted); font: 700 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .subagent-dismiss { margin-left: auto; width: 20px; height: 20px; padding: 0; border: 0; color: var(--muted); background: transparent; font: 17px/1 var(--mono); cursor: pointer; }
+  .subagent-dismiss:hover, .subagent-dismiss:focus-visible { color: var(--strong); outline: 1px solid var(--accent); outline-offset: 1px; }
+  .subagent-rows { display: grid; }
+  .subagent-row { display: grid; grid-template-columns: 7px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); font: 10px/1.35 var(--mono); }
+  .subagent-row:first-child { border-top: 0; }
+  .subagent-status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .subagent-row.running .subagent-status-dot { background: var(--success); }
+  .subagent-row.waiting .subagent-status-dot { background: var(--waiting); }
+  .subagent-name { color: var(--strong); font-weight: 700; }
+  .subagent-task { display: block; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+  .subagent-elapsed { color: var(--muted); }
+  .subagent-empty { padding: 10px; color: var(--muted); font: 10px/1.4 var(--mono); }
+
+  .gate { max-width: 520px; margin: 22vh auto 0; padding: 32px 24px; text-align: center; border: 2px solid var(--border); background: var(--surface); }
+  .gate h1 { margin: 0 0 9px; font: 700 18px var(--mono); letter-spacing: -.02em; color: var(--strong); text-transform: uppercase; }
+  .gate p { margin: 0; color: var(--muted); font: 11px var(--mono); }
+
+  @keyframes pulse { 50% { opacity: .36; } }
+  @keyframes blink { 50% { opacity: 0; } }
+  @keyframes event-in { from { opacity: 0; transform: translateY(4px); } }
+
+  body.obs-mode { --left-rail: 286px; --right-rail: 240px; width: 100vw; height: 100vh; overflow: hidden; }
+  body.obs-mode header { height: 54px; }
+  body.obs-mode .topbar { max-width: none; padding-inline: 0; }
+  body.obs-mode .main-inner { overflow-y: hidden; }
+  body.obs-mode .feed { width: min(100%, 980px); padding: 18px 28px 82px; }
+  body.obs-mode .side-panel { width: 286px; }
+  body.obs-mode .route-panel { width: 240px; }
+  body.obs-mode .subagent-tracker { display: none; }
+  body.obs-mode .ticker { min-height: 38px; }
+  body.obs-mode .ticker .state { padding-block: 8px; }
+  body.obs-mode .task-announcement { top: 64px; }
+
+  @media (max-width: 720px) {
+    .topbar { grid-template-columns: 1fr auto; gap: 8px 14px; padding: 10px 16px; }
+    .title { grid-column: 1 / -1; grid-row: 2; font-size: 13px; }
+    .meta { grid-column: 2; grid-row: 1; }
+    .chip { display: none; }
+    .feed { padding: 22px 16px 116px; }
+    .turn { grid-template-columns: 1fr; gap: 7px; padding: 18px 0; }
+    .card { margin-left: 0; }
+    .card-head { grid-template-columns: 68px minmax(68px, auto) minmax(0, 1fr); gap: 8px; }
+    .card-body { padding-left: 76px; }
+    .ticker .tag { width: 86px; }
+    .ticker .state { padding-inline: 14px; }
+    .side-panel { display: none; }
+    .route-panel { display: none; }
+    .subagent-tracker { display: none; }
+    main { overflow-y: auto; }
+    .main-inner { overflow: visible; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  }
+
+  /* CRT scanline overlay */
+  .crt::after {
+    content: " ";
+    display: block;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,.06) 0px,
+      rgba(0,0,0,.06) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Terminal pipe on message turns */
+  .turn {
+    position: relative;
+  }
+  .turn.suppressed { display: none; }
+  .turn::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .turn:first-child::before {
+    top: 21px;
+  }
+  .turn:last-child::before {
+    bottom: 21px;
+  }
+</style>
+</head>
+<body class="crt">
+  <header>
+    <div class="topbar">
+      <div class="brand"><span class="wordmark">┌─[ spectator ]─┐</span></div>
+      <span class="title" id="title">Hermes session</span>
+      <div class="meta">
+        <span class="chip" id="model" hidden></span>
+        <button class="theme-toggle" id="themeToggle" type="button">Theme</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="main-inner">
+      <div class="feed" id="feed">
+        <div class="gate" id="gate">
+          <h1>Waiting for Hermes</h1>
+          <p id="gateMsg">Connecting to the live session…</p>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side-panel" id="sidePanel">
+      <section class="health-panel" aria-label="Stream health">
+        <div class="panel-header"><span class="dot"></span><span>stream health</span><span class="tool-summary" id="healthState">LIVE</span></div>
+        <div class="health-grid">
+          <div class="health-item"><span class="health-label">source</span><strong class="health-value" id="healthSource">ingest-only watcher</strong></div>
+          <div class="health-item"><span class="health-label">session</span><strong class="health-value" id="healthSession">waiting</strong></div>
+          <div class="health-item"><span class="health-label">last event</span><strong class="health-value" id="healthLastEvent">never</strong></div>
+          <div class="health-item"><span class="health-label">events</span><strong class="health-value" id="healthEvents">0</strong></div>
+          <div class="health-item"><span class="health-label">dropped</span><strong class="health-value" id="healthDropped">0</strong></div>
+          <div class="health-item"><span class="health-label">redaction</span><strong class="health-value good" id="healthRedaction">ON</strong></div>
+        </div>
+      </section>
+      <div class="panel-header">
+        <span class="dot"></span>
+        <span>working on</span>
+        <span class="tool-summary" id="kanbanSummary">loading…</span>
+      </div>
+      <div class="kanban-tracker" id="kanbanTracker" data-board="code-tasks" aria-live="polite">
+        <p class="telemetry-empty">loading active tasks…</p>
+      </div>
+      <div id="toolTelemetry" hidden></div>
+      <p class="redaction-note"><strong>read-only</strong> · host redacts secrets and PII before fan-out</p>
+    </aside>
+    <aside class="route-panel" aria-label="Current work route">
+      <div class="kanban-route" id="kanbanRoute"></div>
+    </aside>
+  </main>
+
+  <section class="task-announcement" id="taskAnnouncement" hidden aria-live="assertive">
+    <div class="announcement-kicker" id="announcementKicker">task update</div>
+    <div class="announcement-title" id="announcementTitle"></div>
+    <div class="announcement-detail" id="announcementDetail"></div>
+  </section>
+
+  <section class="subagent-tracker" id="subagentTracker" aria-label="Active subagents">
+    <div class="subagent-tracker-head"><span>subagents</span><button class="subagent-dismiss" id="subagentDismiss" type="button" aria-label="Dismiss subagent tracker">×</button></div>
+    <div class="subagent-rows" id="subagentRows"><p class="subagent-empty">no active subagents</p></div>
+  </section>
+
+  <button id="jump" type="button">Jump to live ↓</button>
+
+  <div class="ticker idle" id="ticker" role="status" aria-live="polite">
+    <span class="tag" id="tickerTag">STANDBY</span>
+    <span class="state"><span id="tickerState">waiting for signal</span><span class="detail" id="tickerDetail"></span></span>
+  </div>
+
+<script>
+(() => {
+  // ── main viewer ─────────────────────────────────────────────────────────────
+  const $ = (id) => document.getElementById(id);
+  const feed = $("feed"), scroller = document.querySelector(".main-inner");
+  const themeToggle = $("themeToggle");
+  const subagentTracker = $("subagentTracker"), subagentRows = $("subagentRows"), subagentDismiss = $("subagentDismiss");
+  const health = { events: 0, duplicates: 0, dropped: 0, lastEvent: 0, session: "waiting" };
+  const updateHealth = () => {
+    $("healthEvents").textContent = String(health.events);
+    $("healthDropped").textContent = String(health.dropped || 0);
+    $("healthSession").textContent = health.session || "waiting";
+    $("healthLastEvent").textContent = health.lastEvent ? `${Math.max(0, Math.round((Date.now() - health.lastEvent) / 1000))}s ago` : "never";
+    $("healthState").textContent = health.lastEvent && Date.now() - health.lastEvent < 15000 ? "LIVE" : "WAITING";
+  };
+  setInterval(updateHealth, 1000);
+  let subagentTrackerHidden = false;
+  try { subagentTrackerHidden = localStorage.getItem("spectator-subagent-hidden") === "true"; } catch {}
+  subagentTracker.hidden = subagentTrackerHidden;
+  subagentDismiss.onclick = () => {
+    subagentTrackerHidden = true;
+    subagentTracker.hidden = true;
+    try { localStorage.setItem("spectator-subagent-hidden", "true"); } catch {}
+  };
+  const showTheme = () => {
+    const current = document.documentElement.dataset.theme === "light" ? "light" : "dark";
+    const next = current === "dark" ? "light" : "dark";
+    themeToggle.textContent = next[0].toUpperCase() + next.slice(1);
+    themeToggle.setAttribute("aria-label", `Use ${next} theme`);
+    themeToggle.title = `Use ${next} theme`;
+  };
+  themeToggle.onclick = () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    document.documentElement.style.colorScheme = next;
+    try { localStorage.setItem("spectator-theme", next); } catch {}
+    showTheme();
+  };
+  showTheme();
+  const key = new URLSearchParams(location.hash.slice(1)).get("k");
+  const viewMode = new URLSearchParams(location.hash.slice(1)).get("mode");
+  document.body.classList.toggle("obs-mode", viewMode === "obs");
+  if (!key) { $("gateMsg").textContent = "missing view key — use the full share link (…/watch#k=…)"; return; }
+
+  // Safe Markdown renderer: escape first, then add a deliberately small,
+  // first-party subset. Never inject raw message content into HTML.
+  const escapeHtml = (s) => String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+  const fmtInline = (s) => escapeHtml(s)
+    .replace(/\[([^\]]+)\]\(((?:https?:|mailto:)[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_\n]+)__/g, "<strong>$1</strong>")
+    .replace(/~~([^~\n]+)~~/g, "<del>$1</del>")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>");
+  const markdown = (source) => {
+    const lines = String(source ?? "").split("\n");
+    const out = [];
+    let fence = false, list = null;
+    const closeList = () => { if (list) { out.push(`</${list}>`); list = null; } };
+    const tableCells = (value) => value.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+    const tableDivider = (value) => /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(value);
+    for (let i = 0; i < lines.length; i += 1) {
+      const raw = lines[i];
+      const line = raw.trimEnd();
+      const fenceMatch = line.match(/^\s*```\w*\s*$/);
+      if (fenceMatch) {
+        if (fence) { out.push("</code></pre>"); fence = false; }
+        else { closeList(); fence = true; out.push('<pre class="markdown-code"><code>'); }
+        continue;
+      }
+      if (fence) { out.push(escapeHtml(raw) + "\n"); continue; }
+      if (!line.trim()) { closeList(); continue; }
+      if (line.includes("|") && tableDivider(lines[i + 1] || "")) {
+        closeList();
+        const headers = tableCells(line);
+        const rows = [];
+        i += 2;
+        while (i < lines.length && lines[i].includes("|") && lines[i].trim()) {
+          rows.push(tableCells(lines[i]));
+          i += 1;
+        }
+        i -= 1;
+        out.push(`<table><thead><tr>${headers.map((cell) => `<th>${fmtInline(cell)}</th>`).join("")}</tr></thead><tbody>`);
+        for (const row of rows) {
+          out.push(`<tr>${headers.map((_, index) => `<td>${fmtInline(row[index] || "")}</td>`).join("")}</tr>`);
+        }
+        out.push("</tbody></table>");
+        continue;
+      }
+      const heading = line.match(/^\s*(#{1,6})\s+(.+)$/);
+      if (heading) { closeList(); const level = heading[1].length; out.push(`<h${level}>${fmtInline(heading[2])}</h${level}>`); continue; }
+      const bullet = line.match(/^\s*[-*+]\s+(.+)$/);
+      const ordered = line.match(/^\s*\d+[.)]\s+(.+)$/);
+      if (bullet || ordered) {
+        const next = bullet ? "ul" : "ol";
+        if (list !== next) { closeList(); list = next; out.push(`<${list}>`); }
+        out.push(`<li>${fmtInline((bullet || ordered)[1])}</li>`);
+        continue;
+      }
+      const quote = line.match(/^\s*>\s?(.*)$/);
+      if (quote) { closeList(); out.push(`<blockquote>${fmtInline(quote[1])}</blockquote>`); continue; }
+      closeList();
+      out.push(`<p>${fmtInline(line)}</p>`);
+    }
+    if (fence) out.push("</code></pre>");
+    closeList();
+    return out.join("");
+  };
+  const fmt = (s) => fmtInline(s).replace(/\n/g, "<br>");
+
+  const kanbanTracker = $("kanbanTracker");
+  const previousTaskStates = new Map();
+  let announcementTimer = null;
+  const announceTaskChange = (task, before, after) => {
+    if (!before || before === after) return;
+    const phrase = after === "running" && before === "blocked" ? "back in motion" : after === "running" ? "picked up" : after === "done" ? "landed" : after === "blocked" ? "hit a wall" : null;
+    if (!phrase) return;
+    $("announcementKicker").textContent = `task ${phrase}`;
+    $("announcementTitle").textContent = task.title;
+    $("announcementDetail").textContent = `${task.id} · ${task.assignee} · ${before} → ${after}`;
+    $("taskAnnouncement").hidden = false;
+    clearTimeout(announcementTimer);
+    announcementTimer = setTimeout(() => { $("taskAnnouncement").hidden = true; }, 6000);
+  };
+  const observeTaskTransitions = (tasks) => {
+    for (const task of Array.isArray(tasks) ? tasks : []) {
+      const before = previousTaskStates.get(task.id);
+      announceTaskChange(task, before, task.status);
+      previousTaskStates.set(task.id, task.status);
+    }
+  };
+  const renderKanban = (tasks) => {
+    const order = ["running", "review", "blocked", "ready", "todo"];
+    const active = (Array.isArray(tasks) ? tasks : []).filter((task) => task.status !== "done" && task.status !== "archived");
+    kanbanTracker.replaceChildren();
+    if (!active.length) {
+      const empty = document.createElement("p"); empty.className = "telemetry-empty"; empty.textContent = "no active tasks";
+      kanbanTracker.appendChild(empty); $("kanbanSummary").textContent = "0 active"; return;
+    }
+    for (const status of order) {
+      const group = active.filter((task) => task.status === status);
+      if (!group.length) continue;
+      const section = document.createElement("section"); section.className = "kanban-group";
+      const heading = document.createElement("div"); heading.className = "kanban-group-title";
+      heading.textContent = status.replace("_", " ");
+      const count = document.createElement("span"); count.className = "count"; count.textContent = String(group.length); heading.appendChild(count); section.appendChild(heading);
+      for (const task of group) {
+        const row = document.createElement("article"); row.className = `kanban-row ${status}`;
+        const title = document.createElement("div"); title.className = "kanban-title"; title.textContent = task.title;
+        const meta = document.createElement("div"); meta.className = "kanban-meta";
+        const id = document.createElement("span"); id.className = "kanban-id"; id.textContent = task.id;
+        const assignee = document.createElement("span"); assignee.className = "kanban-assignee"; assignee.textContent = task.assignee;
+        meta.append(id, assignee); row.append(title, meta); section.appendChild(row);
+      }
+      kanbanTracker.appendChild(section);
+    }
+    $("kanbanSummary").textContent = `${active.length} active`;
+  };
+  const renderRoute = (route) => {
+    const host = $("kanbanRoute");
+    host.replaceChildren();
+    const tasks = Array.isArray(route?.tasks) ? route.tasks : [];
+    const links = Array.isArray(route?.links) ? route.links : [];
+    if (!tasks.length) return;
+    const byId = new Map(tasks.map((task) => [task.id, task]));
+    const children = new Map();
+    const hasParent = new Set();
+    for (const link of links) {
+      if (!byId.has(link.parent_id) || !byId.has(link.child_id)) continue;
+      if (!children.has(link.parent_id)) children.set(link.parent_id, []);
+      children.get(link.parent_id).push(link.child_id); hasParent.add(link.child_id);
+    }
+    const ordered = [], seen = new Set();
+    const visit = (id) => { if (seen.has(id)) return; seen.add(id); ordered.push(byId.get(id)); for (const child of children.get(id) || []) visit(child); };
+    for (const task of tasks) if (!hasParent.has(task.id)) visit(task.id);
+    for (const task of tasks) visit(task.id);
+    const heading = document.createElement("div"); heading.className = "route-heading"; heading.textContent = "current work route"; host.appendChild(heading);
+    for (const task of ordered) {
+      const node = document.createElement("div"); node.className = `route-node ${task.status}`;
+      const symbol = document.createElement("span"); symbol.className = "route-symbol"; symbol.textContent = task.status === "done" ? "✓" : task.status === "running" ? "●" : task.status === "blocked" ? "⊘" : "○";
+      const title = document.createElement("span"); title.className = "route-title"; title.textContent = task.title.replace(/^Research Salon:\s*/i, "");
+      node.append(symbol, title); host.appendChild(node);
+    }
+  };
+  const refreshKanban = async () => {
+    try { const response = await fetch("/kanban", { cache: "no-store" }); if (response.ok) { const data = await response.json(); observeTaskTransitions(data.tasks); renderKanban(data.tasks); renderRoute(data.route); } }
+    catch { $("kanbanSummary").textContent = "offline"; }
+  };
+  refreshKanban();
+  setInterval(refreshKanban, 5000);
+
+  const messages = new Map(); // messageId -> {el, text}
+  const tools = new Map();    // toolId -> {card, badge, pre, telemetry}
+  const approvals = new Map();
+  const notices = new Set();
+  let gateCleared = false, pinned = true, lastConnectionState = "", connectionNotice = null, streamHead = null, activeTurn = null;
+
+  scroller.addEventListener("scroll", () => {
+    pinned = scroller.scrollTop + scroller.clientHeight > scroller.scrollHeight - 80;
+    $("jump").style.display = pinned ? "none" : "block";
+  });
+  $("jump").onclick = () => { scroller.scrollTop = scroller.scrollHeight; };
+  const stick = () => { if (pinned) scroller.scrollTop = scroller.scrollHeight; };
+
+  const clearGate = () => { if (!gateCleared) { $("gate").remove(); gateCleared = true; } };
+  const add = (el) => { clearGate(); feed.appendChild(el); stick(); };
+
+  function ensureStreamHead(payload = {}) {
+    if (!streamHead) {
+      streamHead = document.createElement("section");
+      streamHead.className = "stream-head";
+      streamHead.setAttribute("aria-label", "Active Hermes stream");
+      streamHead.innerHTML = '<span class="stream-head-title"></span><span class="stream-head-model"></span><span class="stream-head-status">connecting</span>';
+      feed.prepend(streamHead);
+    }
+    streamHead.querySelector(".stream-head-title").textContent = payload.title || $("title").textContent || "Hermes session";
+    streamHead.querySelector(".stream-head-model").textContent = payload.model || $("model").textContent || "live relay";
+    return streamHead;
+  }
+
+  function setStreamStatus(text) {
+    ensureStreamHead().querySelector(".stream-head-status").textContent = text;
+  }
+
+  function addNotice(key, text) {
+    if (notices.has(key)) return;
+    notices.add(key);
+    const n = document.createElement("div");
+    n.className = "stream-notice";
+    n.textContent = text;
+    add(n);
+  }
+
+  // The bridge can replay Hermes control frames alongside human/agent chat. They
+  // are useful session state, but never useful as a transcript wall. Keep the
+  // copy deliberately generic so suppressed data never bypasses the host redactor.
+  function transcriptKind(text) {
+    const value = String(text ?? "").trim();
+    if (!value) return "empty";
+    if (/^\[(?:IMPORTANT|NOTE|CONTEXT COMPACTION|CONTINUING\b)/i.test(value) || /(?:^|\n)---\s*\nname:\s*(?:plan|[\w-]+)\b/i.test(value)) return "control";
+    if (/^\s*[\[{]/.test(value) && /["'](?:tool|toolId|recipient_name|arguments|payload)["']\s*:/i.test(value)) return "tool-json";
+    if (/\b(?:scheduled cron job|cron banner|cron delivery)\b/i.test(value)) return "cron";
+    return "message";
+  }
+
+  function hideTranscript(kind) {
+    if (kind === "control") addNotice("control", "session instruction hidden · live transcript stays operator-focused");
+    else if (kind === "tool-json") addNotice("tool-json", "tool payload summarized in tool cards");
+    else if (kind === "cron") addNotice("cron", "cron activity collapsed into session status");
+  }
+
+  const setTicker = (tag, state, detail = "", idle = false) => {
+    $("tickerTag").textContent = tag;
+    $("tickerState").textContent = state;
+    $("tickerDetail").textContent = detail ? "— " + detail : "";
+    $("ticker").classList.toggle("idle", idle);
+  };
+  const setLive = (_on, _label) => {};
+
+  function agentTurn(messageId) {
+    if (messages.has(messageId)) {
+      activeTurn = messages.get(messageId);
+      return activeTurn;
+    }
+    const turn = document.createElement("div");
+    turn.className = "turn";
+    turn.innerHTML = `<span class="who agent">hermes</span><span class="msg"></span><div class="activity" aria-label="Tool activity"></div>`;
+    add(turn);
+    const rec = { turn, el: turn.querySelector(".msg"), activity: turn.querySelector(".activity"), text: "" };
+    messages.set(messageId, rec);
+    activeTurn = rec;
+    return rec;
+  }
+
+  function ensureActivityTurn() {
+    return activeTurn || agentTurn(`activity:${Date.now()}:${Math.random()}`);
+  }
+
+  function renderAgentTurn(rec, streaming = false) {
+    const kind = transcriptKind(rec.text);
+    if (kind !== "message") {
+      rec.turn.classList.add("suppressed");
+      hideTranscript(kind);
+      return;
+    }
+    rec.turn.classList.remove("suppressed");
+    rec.el.innerHTML = markdown(rec.text) + (streaming ? '<span class="caret"></span>' : "");
+  }
+
+  const entityKey = (ev, id) => `${ev.sessionId || "live"}:${id}`;
+
+  function toolCard(p) {
+    const card = document.createElement("div");
+    card.className = "card running";
+    card.innerHTML = `
+      <button class="card-head" type="button" aria-expanded="false">
+        <span class="badge run">RUNNING</span>
+        <span class="tname">${fmt(p.name || "tool")}</span>
+        <span class="tsum">${fmt(p.summary || "")}</span>
+      </button>
+      <div class="card-body"><pre></pre></div>`;
+    card.querySelector(".card-head").onclick = (event) => {
+      const open = card.classList.toggle("open");
+      event.currentTarget.setAttribute("aria-expanded", String(open));
+    };
+    const conversation = ensureActivityTurn();
+    clearGate();
+    conversation.activity.appendChild(card);
+    stick();
+    const telemetry = document.createElement("article");
+    telemetry.className = "telemetry-card running";
+    telemetry.innerHTML = `<button class="card-head" type="button" aria-expanded="false"><span class="tool-name"></span><span class="badge run">RUNNING</span></button><div class="telemetry-detail" hidden></div>`;
+    telemetry.querySelector(".tool-name").textContent = p.name || "tool";
+    telemetry.querySelector(".card-head").onclick = (event) => {
+      const detail = telemetry.querySelector(".telemetry-detail");
+      detail.hidden = !detail.hidden;
+      event.currentTarget.setAttribute("aria-expanded", String(!detail.hidden));
+    };
+    $("telemetryEmpty")?.remove();
+    $("toolTelemetry").appendChild(telemetry);
+    return { card, badge: card.querySelector(".badge"), summary: card.querySelector(".tsum"), pre: card.querySelector("pre"), telemetry };
+  }
+
+  function updateToolSummary() {
+    let ok = 0, run = 0, fail = 0;
+    for (const t of tools.values()) {
+      if (t.telemetry.classList.contains("running")) run++;
+      else if (t.telemetry.classList.contains("error")) fail++;
+      else if (t.telemetry.classList.contains("ok")) ok++;
+    }
+    const toolSummary = $("toolSummary");
+    if (toolSummary) toolSummary.textContent = `${ok} ok · ${run} run · ${fail} fail`;
+  }
+
+  function renderSubagents(agents) {
+    const rows = Array.isArray(agents) ? agents.slice(0, 3) : [];
+    subagentRows.replaceChildren();
+    if (!rows.length) {
+      const empty = document.createElement("p");
+      empty.className = "subagent-empty";
+      empty.textContent = "no active subagents";
+      subagentRows.appendChild(empty);
+      return;
+    }
+    for (const agent of rows) {
+      const status = ["running", "idle", "waiting"].includes(agent.status) ? agent.status : "idle";
+      const row = document.createElement("div");
+      row.className = `subagent-row ${status}`;
+      const dot = document.createElement("span");
+      dot.className = "subagent-status-dot";
+      dot.setAttribute("aria-label", status);
+      const copy = document.createElement("span");
+      const name = document.createElement("span");
+      name.className = "subagent-name";
+      name.textContent = agent.name || "Hermes";
+      const task = document.createElement("span");
+      task.className = "subagent-task";
+      task.textContent = agent.task || "working";
+      copy.append(name, task);
+      const elapsed = document.createElement("span");
+      elapsed.className = "subagent-elapsed";
+      elapsed.textContent = `${Math.max(0, Number(agent.elapsed_s) || 0)}s`;
+      row.append(dot, copy, elapsed);
+      subagentRows.appendChild(row);
+    }
+  }
+
+  const handlers = {
+    "session.meta": (ev) => {
+      health.session = String(ev.sessionId || "live").slice(-18);
+      clearGate();
+      $("title").textContent = ev.payload.title || "";
+      if (ev.payload.model) { $("model").textContent = ev.payload.model; $("model").hidden = false; }
+      ensureStreamHead(ev.payload);
+      setStreamStatus("session open · stream attached");
+      setLive(true, "LIVE"); setTicker("ON AIR", "session open", "", false);
+    },
+    "subagent.meta": (ev) => renderSubagents(ev.payload?.agents),
+    "user.message": (ev) => {
+      const kind = transcriptKind(ev.payload.text);
+      if (kind !== "message") { hideTranscript(kind); return; }
+      const t = document.createElement("div");
+      activeTurn = null;
+      t.className = "turn";
+      t.innerHTML = `<span class="who human">${fmt(ev.actor?.name || "operator")}</span><span class="msg">${markdown(ev.payload.text || "")}</span>`;
+      add(t);
+    },
+    "message.delta": (ev) => {
+      const rec = agentTurn(entityKey(ev, ev.payload.messageId));
+      rec.text += ev.payload.text || "";
+      renderAgentTurn(rec, true);
+      stick();
+    },
+    "message.complete": (ev) => {
+      const rec = agentTurn(entityKey(ev, ev.payload.messageId));
+      rec.text = ev.payload.text ?? rec.text;
+      renderAgentTurn(rec);
+      stick();
+    },
+    "tool.start": (ev) => {
+      const key = entityKey(ev, ev.payload.toolId);
+      tools.set(key, toolCard(ev.payload));
+      if (ev.payload.argsHidden) tools.get(key).pre.innerHTML = '<span class="hint">tool arguments hidden by the host</span>';
+      updateToolSummary();
+      setTicker("ON AIR", "running " + (ev.payload.name || "tool"));
+    },
+    "tool.progress": (ev) => {
+      const t = tools.get(entityKey(ev, ev.payload.toolId)); if (!t) return;
+      t.pre.textContent = ((t.pre.textContent || "") + "\n" + (ev.payload.chunk || "")).trim();
+      t.card.classList.add("open");
+      const detail = t.telemetry.querySelector(".telemetry-detail");
+      detail.textContent = t.pre.textContent;
+      detail.hidden = !detail.textContent;
+      stick();
+    },
+    "tool.complete": (ev) => {
+      const t = tools.get(entityKey(ev, ev.payload.toolId)); if (!t) return;
+      const ok = ev.payload.status !== "error";
+      t.card.classList.remove("running");
+      t.card.classList.add(ok ? "ok" : "error");
+      t.badge.className = "badge " + (ok ? "ok" : "err");
+      t.badge.textContent = ok ? "DONE" : "FAILED";
+      if (ev.payload.summary) t.card.querySelector(".tsum").innerHTML = fmt(ev.payload.summary);
+      if (ev.payload.outputHidden && !t.pre.textContent) t.pre.innerHTML = '<span class="hint">tool output hidden by the host</span>';
+      t.telemetry.classList.remove("running");
+      t.telemetry.classList.add(ok ? "ok" : "error");
+      const telemetryBadge = t.telemetry.querySelector(".badge");
+      telemetryBadge.className = "badge " + (ok ? "ok" : "err");
+      telemetryBadge.textContent = ok ? "DONE" : "FAILED";
+      const detail = t.telemetry.querySelector(".telemetry-detail");
+      detail.textContent = ev.payload.summary || (ev.payload.outputHidden ? "tool output hidden by the host" : t.pre.textContent);
+      detail.hidden = !detail.textContent;
+      updateToolSummary();
+      stick();
+    },
+    "approval.request": (ev) => {
+      const card = document.createElement("div");
+      card.className = "card approval open";
+      card.innerHTML = `
+        <div class="card-head">
+          <span class="badge wait">APPROVAL</span>
+          <span class="tname">${fmt(ev.payload.name || "action")}</span>
+          <span class="tsum">${fmt(ev.payload.summary || "")}</span>
+        </div>
+        <div class="card-body"><pre><span class="hint">waiting for the operator…</span></pre></div>`;
+      add(card);
+      approvals.set(entityKey(ev, ev.payload.approvalId), card);
+      setTicker("ON AIR", "waiting for approval", ev.payload.name || "");
+    },
+    "approval.decision": (ev) => {
+      const card = approvals.get(entityKey(ev, ev.payload.approvalId)); if (!card) return;
+      const ok = ev.payload.decision === "approve";
+      const b = card.querySelector(".badge");
+      b.className = "badge " + (ok ? "ok" : "err");
+      b.textContent = ok ? "APPROVED" : "DENIED";
+      card.querySelector("pre").textContent = ok ? "approved by the operator" : "denied by the operator";
+      card.classList.remove("approval");
+      card.classList.add(ok ? "ok" : "error");
+    },
+    "clarify.request": (ev) => {
+      const t = document.createElement("div");
+      t.className = "turn";
+      t.innerHTML = `<span class="who agent">hermes · question</span><span class="msg">${fmt(ev.payload.text || "")}</span>`;
+      add(t);
+      setTicker("ON AIR", "waiting for the operator");
+    },
+    "presence.state": (_ev) => {},
+    "status": (ev) => {
+      const s = ev.payload.state;
+      setStreamStatus(`${s || "live"}${ev.payload.detail ? " · " + ev.payload.detail : ""}`);
+      if (s !== "connecting" && s !== "reconnecting") {
+        lastConnectionState = "";
+        connectionNotice?.remove();
+        connectionNotice = null;
+      }
+      if (s === "thinking") setTicker("ON AIR", "thinking…");
+      else if (s === "tooling") setTicker("ON AIR", "running " + (ev.payload.detail || "a tool"));
+      else if (s === "waiting") setTicker("ON AIR", "waiting", ev.payload.detail || "");
+      else if (s === "idle") setTicker("ON AIR", "idle — session open", ev.payload.detail || "");
+      else if (s === "live") { setLive(true, "LIVE"); setTicker("ON AIR", "signal acquired", ev.payload.detail || ""); }
+      else if (s === "connecting" || s === "reconnecting") {
+        setLive(false, s.toUpperCase());
+        setTicker("STANDBY", s + "…", ev.payload.detail || "", true);
+        if (s === "reconnecting" && lastConnectionState !== s) {
+          const n = document.createElement("div");
+          n.className = "sys";
+          n.textContent = "— " + s + " —";
+          add(n);
+          connectionNotice = n;
+        }
+        lastConnectionState = s;
+      } else if (s === "ended") { setLive(false, "ENDED"); setTicker("OFF AIR", "broadcast ended", "", true); }
+    },
+  };
+
+  let lastSeq = 0, retry = 800;
+  function connect() {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${proto}://${location.host}/ws?key=${encodeURIComponent(key)}&since=${lastSeq}`);
+    ws.onopen = () => { retry = 800; $("gateMsg") && ($("gateMsg").textContent = "signal acquired — waiting for events"); };
+    ws.onmessage = (m) => {
+      let ev; try { ev = JSON.parse(m.data); } catch { health.dropped += 1; updateHealth(); return; }
+      if (ev.seq && ev.seq <= lastSeq) health.duplicates += 1;
+      if (ev.seq) lastSeq = Math.max(lastSeq, ev.seq);
+      health.events += 1;
+      health.lastEvent = Date.now();
+      updateHealth();
+      handlers[ev.kind]?.(ev);
+    };
+    ws.onclose = () => {
+      setLive(false, "RECONNECTING");
+      setTicker("STANDBY", "link lost — retrying", "", true);
+      setTimeout(connect, retry);
+      retry = Math.min(retry * 2, 10000);
+    };
+  }
+  connect();
+})();
+</script>
+</body>
+</html>

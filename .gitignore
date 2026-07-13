@@ -1,0 +1,15 @@
+node_modules/
+*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Raw recordings can contain private Hermes payloads. Review explicitly before adding.
+fixtures/raw-frames.jsonl
+.spectator/
+
+# Local credentials and operator configuration
+.kick-bridge-tokens.json
+.env
+.env.*
+.hermes/

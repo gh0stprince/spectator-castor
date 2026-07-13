@@ -1,0 +1,49 @@
+{
+  "name": "spectator",
+  "version": "0.1.0",
+  "description": "A safe, read-only live viewer for Hermes Agent sessions",
+  "scripts": {
+    "test": "node --test",
+    "demo": "node src/cli.js --demo",
+    "start": "node src/cli.js"
+  },
+  "keywords": [
+    "hermes-agent",
+    "agent",
+    "livestream",
+    "spectator",
+    "websocket"
+  ],
+  "author": "Spectator contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gh0stprince/spectator-castor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gh0stprince/spectator-castor/issues"
+  },
+  "homepage": "https://github.com/gh0stprince/spectator-castor#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "files": [
+    "src/",
+    "public/",
+    "fixtures/demo-session.jsonl",
+    "scripts/",
+    "start-spectator.cmd",
+    "stop-spectator.cmd",
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md"
+  ],
+  "type": "module",
+  "bin": {
+    "spectator": "./src/cli.js",
+    "hermes-live": "./src/cli.js"
+  },
+  "dependencies": {
+    "ws": "^8.21.0"
+  }
+}
